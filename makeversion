@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+import subprocess
+import socket
+import datetime
+
+def run_cmd(cmd):
+    pr = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    result, err = pr.communicate()
+    if pr.returncode:
+        raise RuntimeError, 'git failed'
+    return result
+
+try:
+    build_nr = int(open(".buildnum", 'r').read(20))+1
+except:
+    build_nr = 1
+open(".buildnum", 'w').write(str(build_nr))
+
+git_hash = run_cmd(['git', 'rev-parse', 'HEAD']).strip()
+git_diff = run_cmd(['git', 'diff', '--numstat']).strip()
+date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+hash = git_hash[:7]
+if git_diff:
+    hash += '+'
+
+version_string = '%s git %s build %s/%d' % (date_str, hash, socket.gethostname(), build_nr)
+print "Version %s" % version_string
+
+fd = open("version.c", 'w')
+fd.write('#include "version.h"\n')
+fd.write('\n')
+fd.write('const char software_version_string[] PROGMEM = "%s";\n' % version_string)
