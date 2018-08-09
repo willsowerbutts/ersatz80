@@ -1,0 +1,13 @@
+*~
+*.o
+*.pyc
+*.pyo
+.swp*
+*.bak
+*.bck
+*.elf
+*.hex
+*.swp
+.buildnum
+firmware.bin
+version.c

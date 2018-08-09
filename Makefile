@@ -10,7 +10,7 @@ PROG_BAUD=115200
 CCFLAGS=-DDEBUG
 CCFLAGS+=-Wall -Werror -W -Wno-unused-parameter -Wno-sign-compare -Wno-char-subscripts -g -Os -std=gnu99 -fdata-sections -ffunction-sections -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -mcall-prologues -fshort-enums -fno-strict-aliasing
 
-FIRMWARE_OBJS=main.o serial.o debug.o version.o
+FIRMWARE_OBJS=main.o serial.o debug.o version.o z80.o
 
 all:	firmware.bin firmware.hex
 
@@ -38,5 +38,5 @@ clean:
 	rm -f *.hex *.o *.elf *.bin version.c
 
 program:	firmware.hex
-	$(AVRDUDE) -p $(CPU_TYPE) -c arduino -P $(PROG_DEV) -b $(PROG_BAUD) -V -U firmware.hex
+	$(AVRDUDE) -p $(CPU_TYPE) -c wiring -P $(PROG_DEV) -b $(PROG_BAUD) -V -D -U firmware.hex
 	picocom -b 115200 $(PROG_DEV)
