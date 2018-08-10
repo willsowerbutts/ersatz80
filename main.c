@@ -26,36 +26,47 @@ void reboot(void)
 //     0x23, 0x22, 0x03, 0x00, 0x18, 0xfa,
 // };
 
-uint8_t z80_rom[] = { /* output values 32--127 to port 0x10 then loop and repeat */
-    0x3e, 0x20, 0xd3, 0x10, 0x3c, 0xfe, 0x7f, 0x20, 0xf9, 0x18, 0xf5,
-};
+extern const uint8_t z80_rom[] PROGMEM;
+// extern const uint8_t z80_rom[] PROGMEM = { /* output values 32--127 to port 0x10 then loop and repeat */
+//    0x3e, 0x20, 0xd3, 0x10, 0x3c, 0xfe, 0x7f, 0x20, 0xf9, 0x18, 0xf5,
+// };
 
-#define RAM_ADDR_MASK 0x03FF
-uint8_t z80_ram[1024];
+uint8_t z80_ram[4096];
+#define RAM_ADDR_MASK (sizeof(z80_ram)-1)
+#define ROM_ADDR_MASK (0x7FFF) // up to 32KB
 
 void memory_init(void)
 {
     int i;
 
-    report("ROM %d bytes RAM %d bytes\n", sizeof(z80_rom), sizeof(z80_ram));
-
-    // copy in ROM
-    for(i=0; i<sizeof(z80_rom); i++)
-        z80_ram[i] = z80_rom[i];
-    // fill with 0s
+    // jump to ROM at 0x8000
+    i = 0;
+    z80_ram[i++] = 0xC3;
+    z80_ram[i++] = 0x00;
+    z80_ram[i++] = 0x80;
+    // fill remainder with 0
     while(i<sizeof(z80_ram))
         z80_ram[i++] = 0;
 }
 
 uint8_t iodevice_read(uint16_t address)
 {
-    return 0;
+    //report("IO Read %04x\n", address);
+    switch(address & 0xFF){
+        case 0x00: // UART status
+            return (serial_read_ready() ? 0x80 : 0x00) | (serial_write_ready() ? 0x00 : 0x40);
+        case 0x01: // UART data
+            return serial_read_byte();
+        default:
+            return 0xAA;
+    }
 }
 
 void iodevice_write(uint16_t address, uint8_t value)
 {
+    //report("IO Write %04x %02x\n", address, value);
     switch(address & 0xFF){
-        case 0x10:
+        case 0x01: // UART data
             putchar(value);
             break;
         default:
@@ -63,36 +74,40 @@ void iodevice_write(uint16_t address, uint8_t value)
     }
 }
 
+#if 1
 uint8_t memory_read(uint16_t address)
 {
-    return z80_ram[address & RAM_ADDR_MASK];
+    if(address & 0x8000){
+        // ROM
+        return pgm_read_byte(&z80_rom[address & ROM_ADDR_MASK]);
+    }else{
+        // RAM
+        return z80_ram[address & RAM_ADDR_MASK];
+    }
 }
+#else
+uint8_t memory_read(uint16_t address)
+{
+    uint8_t r;
+    if(address & 0x8000){
+        r = pgm_read_byte(&z80_rom[address & ROM_ADDR_MASK]);
+    }else{
+        r = z80_ram[address & RAM_ADDR_MASK];
+    }
+    report("R%04x %02x\n", address, r);
+    return r;
+}
+#endif
 
 void memory_write(uint16_t address, uint8_t value)
 {
+    //report("W%04x %02x\n", address, value);
     z80_ram[address & RAM_ADDR_MASK] = value;
 }
 
-// starting point - 11,952Hz
-// optimized -     234,000Hz
-// inline -        372,825Hz
-// flto -          454,119Hz
-
 void z80_demo(void)
 {
-    // uint8_t r;
-    // z80_bus_state n;
-
     memory_init();
-
-    /* setup 16-bit timer1 */
-    // setup waveform generation mode 4 (CTC mode), prescaler CLK/256
-    // TCCR1A = 0;
-    // TCCR1B = _BV(WGM12) | _BV(CS12);
-    // TCCR1C = 0;
-    // OCR1A = ((F_CPU / 256)/1) - 1;     // set TOP value for 1Hz
-    // TIMSK1 = 0;
-    // TIFR1 = 0xFF; // reset all flags
 
     /* how many clocks do we need here? */
     report("Z80: reset\n");
@@ -105,28 +120,22 @@ void z80_demo(void)
     report("Z80: run\n");
 
     while(true){
-        // once per second
-        // if(TIFR1 & _BV(OCF1A)){
-        //     TIFR1 = _BV(OCF1A);
-        //     report("%luHz\n", z80_clk_counter);
-        //     z80_clk_counter = 0;
-        // }
         if(z80_mreq_asserted()){
             if(z80_rd_asserted()){
                 z80_clock_pulse_drive_data(memory_read(z80_bus_address()));
-            }else{
-                if(z80_wr_asserted())
-                    memory_write(z80_bus_address(), z80_bus_data());
+            }else if(z80_wr_asserted()){
+                memory_write(z80_bus_address(), z80_bus_data());
                 z80_clock_pulse_while_writing();
-            }
+            }else
+                z80_clock_pulse();
         }else if(z80_iorq_asserted()){
             if(z80_rd_asserted()){
                 z80_clock_pulse_drive_data(iodevice_read(z80_bus_address()));
-            }else{
-                if(z80_wr_asserted())
-                    iodevice_write(z80_bus_address(), z80_bus_data());
+            }else if(z80_wr_asserted()){
+                iodevice_write(z80_bus_address(), z80_bus_data());
                 z80_clock_pulse_while_writing();
-            }
+            }else
+                z80_clock_pulse();
         }else{
             z80_clock_pulse();
         }

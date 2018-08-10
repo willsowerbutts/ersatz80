@@ -23,12 +23,13 @@ void z80_init(void)
     DDR_DATA  = 0x00;
     DDR_ADDRL = 0x00;
     DDR_ADDRH = 0x00;
-    // pull-ups on data bus only
+
+    // pull-ups all off
     PORT_DATA  = 0x00;
     PORT_ADDRL = 0x00;
     PORT_ADDRH = 0x00;
 
-    // control signal - inputs
+    // control signal - inputs (no pull-ups)
     DDRB &= ~(_BV(1) | _BV(2) | _BV(3));
     DDRD &= ~(_BV(7));
     DDRG &= ~(_BV(1));
@@ -38,8 +39,8 @@ void z80_init(void)
 
     // control signal - outputs
     DDRG |= (_BV(0) | _BV(2));
-    PORTG |= (_BV(0)); // CLK high
-    PORTG &= ~(_BV(2)); // /RESET asserted
+    z80_set_clk(true);
+    z80_set_reset(true);
 }
 
 void z80_read_bus(z80_bus_state *state)
@@ -75,14 +76,13 @@ inline void z80_set_reset(bool active)
     if(active)
         PORTG &= ~(_BV(2)); // /RESET low (asserted)
     else
-        PORTG |= (_BV(2)); // /RESET high
+        PORTG |= (_BV(2));  // /RESET high
 }
 
 inline void z80_set_clk(bool level)
 {
     if(level){
-        PORTG |= (_BV(0)); // CLK high
-        //z80_clk_counter++;
+        PORTG |= (_BV(0));  // CLK high
     }else
         PORTG &= ~(_BV(0)); // CLK low
 }

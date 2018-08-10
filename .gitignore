@@ -11,3 +11,5 @@
 .buildnum
 firmware.bin
 version.c
+rom.c
+monitor.bin
