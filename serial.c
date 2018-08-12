@@ -14,12 +14,12 @@ void serial_init(void)
     UCSR0C = _BV(UCSZ00) | _BV(UCSZ01); // 8N1 framing
 }
 
-bool serial_write_ready(void)
+inline bool serial_write_ready(void)
 {
     return (UCSR0A & _BV(UDRE0)); // wait for any previous transmission to complete
 }
 
-bool serial_read_ready(void)
+inline bool serial_read_ready(void)
 {
     return (UCSR0A & _BV(RXC0));
 }

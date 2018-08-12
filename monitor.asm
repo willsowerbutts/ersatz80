@@ -9,8 +9,8 @@ INPUT_BUFFER:  equ 0x0F80 ; input buffer (grows upwards, runtime movable)
         ; ROM is mapped in at 32KB+
         ; a JMP 0x8000 is placed in early RAM before the system starts
         org 0x8000 ; early ROM location (also Z80 reset vector)
-        di ; disable interrupts (for those arriving via RST 0 rather than CPU reset)
 boot:
+        di ; disable interrupts (for those arriving via RST 0 rather than CPU reset)
 warmboot:
         ld sp, STACK_INIT   ; load stack pointer to point to 1 byte past top of memory
         ld iy, INPUT_BUFFER ; set default input buffer location 256 bytes below top of stack
@@ -24,6 +24,28 @@ warmboot:
         ; print our greeting
         ld hl, greeting
         call outstring
+
+        ;;        ;;;;;;;;;;;;;;;;;;;; START TEST
+        ;;        ld a, 0x99
+        ;;        ld i, a
+        ;;        ld a, 0xaa
+        ;;        ld bc, 0xbbcc
+        ;;        ld de, 0xddee
+        ;;        ld hl, 0x1122
+        ;;        ld sp, 0x3344
+        ;;        ld ix, 0x5566
+        ;;        ld iy, 0x7788
+        ;;        exx
+        ;;        ld bc, 0x0b0c
+        ;;        ld de, 0x0d0e
+        ;;        ld hl, 0x0102
+        ;;        exx
+        ;;        ex af, af'
+        ;;        ld a, 0x0a
+        ;;        ex af, af'
+        ;;testloop: jr testloop
+        ;;        ;;;;;;;;;;;;;;;;;;;; END TEST
+
 
         ; flush UART FIFO
 fifoflush:
@@ -530,12 +552,7 @@ phshift:
         inc hl
         jr parsemorehex
 
-greeting:           db "\r"
-                    db "                    ___   ___  \r\n"
-                    db " ___  ___   ___ ___( _ ) / _ \\ \r\n"
-                    db "/ __|/ _ \\ / __|_  / _ \\| | | |\r\n"
-                    db "\\__ \\ (_) | (__ / / (_) | |_| |\r\n"
-                    db "|___/\\___/ \\___/___\\___/ \\___/ \r\n"
+greeting:           db "\r\n"
                     db "Z80 ROM Monitor (Will Sowerbutts, 2013-12-12)\r\n", 0
 monitor_prompt:     db "Z80> ", 0
 what_msg:           db "Error reduces\r\nYour expensive computer\r\nTo a simple stone.\r\n", 0

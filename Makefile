@@ -20,7 +20,7 @@ firmware.elf:	$(FIRMWARE_OBJS)
 	rm -f version.c
 
 rom.c:	monitor.asm
-	z80asm -o monitor.bin monitor.asm
+	z80asm --list=monitor.lst -o monitor.bin monitor.asm
 	./makerom rom.c monitor.bin
 
 version.c:

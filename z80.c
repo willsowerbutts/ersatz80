@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <stdbool.h>
+#include "debug.h"
 #include "z80.h"
 
 // bus control signal pins
@@ -16,6 +17,7 @@
 //   CLK    PG0
 
 //uint32_t z80_clk_counter = 0;
+bool z80_bus_trace;
 
 void z80_init(void)
 {
@@ -41,6 +43,15 @@ void z80_init(void)
     DDRG |= (_BV(0) | _BV(2));
     z80_set_clk(true);
     z80_set_reset(true);
+}
+
+void z80_bus_report_state(void)
+{
+    report("\n|%04x|%02x|%s|%s|%s|",
+            z80_bus_address(), z80_bus_data(), 
+            z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
+            z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
+            z80_m1_asserted() ? "M1" : "  ");
 }
 
 void z80_read_bus(z80_bus_state *state)
@@ -83,6 +94,8 @@ inline void z80_set_clk(bool level)
 {
     if(level){
         PORTG |= (_BV(0));  // CLK high
+        if(z80_bus_trace)
+            z80_bus_report_state();
     }else
         PORTG &= ~(_BV(0)); // CLK low
 }
@@ -111,4 +124,15 @@ inline void z80_clock_pulse_while_writing(void)
     do{
         z80_clock_pulse();
     }while( z80_wr_asserted() );
+}
+
+void z80_reset(void)
+{
+    report("Z80 CPU Reset\n");
+    z80_set_reset(true);
+    for(int i=0; i<10; i++){ // Z80 requires at least 3 clocks to fully reset
+        z80_set_clk(false);
+        z80_set_clk(true);
+    }
+    z80_set_reset(false);
 }

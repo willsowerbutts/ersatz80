@@ -30,7 +30,9 @@ typedef struct {
 } z80_bus_state;
 
 //extern uint32_t z80_clk_counter;
+extern bool z80_bus_trace;
 void z80_init(void);
+void z80_reset(void);
 void z80_read_bus(z80_bus_state *state);
 void z80_set_clk(bool level);
 void z80_set_reset(bool active);

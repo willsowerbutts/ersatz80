@@ -29,6 +29,24 @@ void debug_dumpmem(void *_ptr, uint16_t len)
 }
 #endif
 
+uint8_t debug_boldlevel = 0;
+
+void debug_boldon(void)
+{
+    if(debug_boldlevel == 0)
+        printf_P(PSTR("\x1b[1m"));
+    debug_boldlevel++;
+}
+
+void debug_boldoff(void)
+{
+    if(debug_boldlevel == 0)
+        printf_P(PSTR("debug_boldoff with debug_boldlevel=0"));
+    debug_boldlevel--;
+    if(debug_boldlevel == 0)
+        printf_P(PSTR("\x1b[0m"));
+}
+
 static int serial_getchar(FILE *stream)
 {
     return serial_read_byte();
