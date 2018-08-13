@@ -62,13 +62,14 @@ Mega2560 board. Then wire up a 40-pin socket for the Z80 as follows:
 Note N/C = no connection.
 
 I also have a 10K resistor between /RESET and GND just to ensure the Z80 stays
-reset until the AVR starts up. This is very likely not be required, but
+reset until the AVR starts up. This is very likely not required, but
 shouldn't hurt (let me know if you test without this).
 
 ## Building
 
 To build this you will need make, gcc-avr, avr-libc, avrdude, z80asm and
-python. You'll also need a terminal program, I recommend picocom. 
+python. You'll also need a terminal program, I recommend picocom. The Arduino
+IDE is not required (or desired!).
 
 I'm assuming you're using Linux. On a Debian or Ubuntu system you should be
 able to install all the required software with:
