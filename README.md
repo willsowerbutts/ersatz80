@@ -12,8 +12,9 @@ at full speed.
 Photos: https://photos.app.goo.gl/xWK76i5JX4hLooR16
 
 You'll need an Arduino Mega2560 board (about $10 on eBay) and a CMOS Z80 (eg
-Z84C0020). Connect a bit of prototyping board to the 36-pin "DIGITAL" connector
-on the Mega2560 board. Then connect the Z80 signals as follows:
+Z84C0020). Note that NMOS Z80s will not work as they are not fully static.
+Connect a bit of prototyping board to the 36-pin "DIGITAL" connector on the
+Mega2560 board. Then wire up a 40-pin socket for the Z80 as follows:
 
 | Signal        | Z80 pin       | AVR Mega2560 |
 | ------------- | ------------- | ------------ |
@@ -58,9 +59,11 @@ on the Mega2560 board. Then connect the Z80 signals as follows:
 | A9            | 39            | PL1 (D48)    |
 | A10           | 40            | PL2 (D47)    |
 
-I have a 10K resistor between /RESET and GND just to ensure the Z80 stays reset
-until the AVR starts up. This is very likely not be required, but shouldn't
-hurt.
+Note N/C = no connection.
+
+I also have a 10K resistor between /RESET and GND just to ensure the Z80 stays
+reset until the AVR starts up. This is very likely not be required, but
+shouldn't hurt (let me know if you test without this).
 
 ## Building
 
@@ -69,13 +72,14 @@ python. You'll also need a terminal program, I recommend picocom.
 
 I'm assuming you're using Linux. On a Debian or Ubuntu system you should be
 able to install all the required software with:
+
 `$ sudo apt-get install make gcc-avr avr-libc avrdude z80asm python picocom`
 
 If you get this to build on Windows, well done you, please let me know how!
 
 To build the software, just run "make program". This will assemble the monitor
 ROM, compile the AVR firmware, upload it all to the AVR flash using the serial
-bootloader, then run picocom so you can talk to the running system. The makefile
+bootloader, then run picocom so you can talk to the running system. The Makefile
 assumes that the AVR is on /dev/ttyUSB0, just adjust the `PROG_DEV` variable if
 you're using another port.
 
@@ -106,5 +110,6 @@ from the PC. The supported supervisor commands are:
 
 All other characters sent from the PC are sent to the Z80 UART.
 
-Any output from the AVR should be sent to your terminal with the "bright"
-attribute set. Output from the Z80 is sent with the "bright" attribute unset.
+Any output from the supervisor should be sent to your terminal with the
+"bright" attribute set. Output from the Z80 is sent with the "bright" attribute
+unset. There's a baked-in assumption that your terminal is VT100 compatible.
