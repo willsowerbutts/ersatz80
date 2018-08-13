@@ -17,13 +17,16 @@ except:
     build_nr = 1
 open(".buildnum", 'w').write(str(build_nr))
 
-git_hash = run_cmd(['git', 'rev-parse', 'HEAD']).strip()
-git_diff = run_cmd(['git', 'diff', '--numstat']).strip()
-date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+try:
+    git_hash = run_cmd(['git', 'rev-parse', 'HEAD']).strip()
+    git_diff = run_cmd(['git', 'diff', '--numstat']).strip()
+    hash = git_hash[:7]
+    if git_diff:
+        hash += '+'
+except Exception:
+    hash = '(unknown)'
 
-hash = git_hash[:7]
-if git_diff:
-    hash += '+'
+date_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
 version_string = '%s git %s build %s/%d' % (date_str, hash, socket.gethostname(), build_nr)
 print "Version %s" % version_string
