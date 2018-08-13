@@ -246,7 +246,7 @@ void z80_show_regs(void)
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
     uint8_t i;
 
-    // does not deal with the situation where CPU is HALTed.
+    // this code does not deal with the situation where CPU is HALTed.
     // solution might be: wake CPU with an int/nmi, capture PC when it writes it to the
     //                    stack. capture regs as usual. then IRET and JP to PC-1, then 
     //                    feed it a HALT when it fetches PC-1. it will HALT with PC correct.
@@ -289,21 +289,26 @@ void z80_show_regs(void)
     ix  = z80_send_instruction_read_stack(0xE5); // PUSH IX
     z80_send_instruction(0xFD);                  // IY prefix
     iy  = z80_send_instruction_read_stack(0xE5); // PUSH IY
-    z80_send_instruction(0xED);
+    z80_send_instruction(0xED);                  // ED prefix
     z80_send_instruction(0x57);                  // LD A,I - note this affects the flags register
     i = z80_send_instruction_read_stack(0xF5) >> 8; // PUSH AF - I is now in A (high bits)
 
     // finally we need to put AF, SP and PC back as they were before our tinkering
     z80_send_instruction(0xF1);                  // POP af
-    z80_send_instruction(af & 0xFF);             // pop aF
-    z80_send_instruction(af >> 8);               // pop Af
+    z80_send_instruction(af & 0xFF);             //  ...
+    z80_send_instruction(af >> 8);               //  ...
     z80_send_instruction(0x31);                  // LD SP, xxxx
-    z80_send_instruction(sp & 0xFF);             // ld sp, xxXX
-    z80_send_instruction(sp >> 8);               // ld sp, XXxx
+    z80_send_instruction(sp & 0xFF);             //  ...
+    z80_send_instruction(sp >> 8);               //  ...
     z80_send_instruction(0xC3);                  // JP xxxx
-    z80_send_instruction(pc & 0xFF);             // jp xxXX
-    z80_send_instruction(pc >> 8);               // jp XXxx
+    z80_send_instruction(pc & 0xFF);             //  ...
+    z80_send_instruction(pc >> 8);               //  ...
 
-    report("PC=%04x SP=%04x AF=%04x BC=%04x DE=%04x HL=%04x IX=%04x IY=%04x AF'=%04x BC'=%04x DE'=%04x HL'=%04x I=%02x\n", pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_, i);
+    report("PC=%04x SP=%04x\nAF=%04x AF'=%04x\n" \
+           "BC=%04x BC'=%04x\nDE=%04x DE'=%04x\n" \
+           "HL=%04x HL'=%04x\nIX=%04x IY=%04x I=%02x\n",
+           pc, sp, af, af_,
+           bc, bc_, de, de_,
+           hl, hl_, ix, iy, i);
 }
 
