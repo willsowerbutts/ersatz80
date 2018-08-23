@@ -13,8 +13,11 @@ Photos: https://photos.app.goo.gl/xWK76i5JX4hLooR16
 
 You'll need an Arduino Mega2560 board (about $10 on eBay) and a CMOS Z80 (eg
 Z84C0020). Note that NMOS Z80s will not work as they are not fully static.
+
 Connect a bit of prototyping board to the 36-pin "DIGITAL" connector on the
-Mega2560 board. Then wire up a 40-pin socket for the Z80 as follows:
+Mega2560 board. Then wire up a 40-pin socket for the Z80. Start by placing a
+0.1uF ceramic capacitor across pins 11 (+5V) and 29 (GND) to decouple the power
+supply. Then connect a wire to each pin on the socket as follows:
 
 | Signal        | Z80 pin       | AVR Mega2560 |
 | ------------- | ------------- | ------------ |
