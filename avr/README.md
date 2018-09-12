@@ -1,11 +1,11 @@
-# ersatz80
+# ersatz80 (avr)
 
 ## Overview
 
-ersatz80 is a Z80 controlled by an AVR. In this prototype the AVR provides all
-resources to the Z80 including RAM, ROM, peripherals, and the clock. This is a
-prototype for a future PCB that will include SD, SRAM, and allow the Z80 to run
-at full speed.
+ersatz80 AVR is a Z80 controlled by an AVR. In this prototype the AVR provides
+all resources to the Z80 including RAM, ROM, peripherals, and the clock. This
+is a prototype for a future PCB that will include SD, SRAM, and allow the Z80
+to run at full speed.
 
 ## Hardware
 

@@ -339,9 +339,9 @@ void loop() {
                     memory_write(z80_bus_address_low8(), z80_bus_data());
                     z80_set_busrq(false);
                 }else
-                    report("(iorq weird?)");
+                    report("(mreq weird?)");
             } else
-                report("(weird wait??)");
+                report("(wait weird?)");
         }
         if(Serial.available() > 0){
             int keyin = Serial.read();
