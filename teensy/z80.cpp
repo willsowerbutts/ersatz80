@@ -1,8 +1,12 @@
 #include <Arduino.h>
 #include "rom.h"
+#include "debug.h"
 #include "z80.h"
 
-#define report Serial.printf
+#if defined(KINETISK) // speed up Teensy3.5 a bit
+#define GPIO_BITBAND_ADDR(reg, bit) (((uint32_t)&(reg) - 0x40000000) * 32 + (bit) * 4 + 0x42000000)
+#define GPIO_BITBAND_PTR(reg, bit) ((uint32_t *)GPIO_BITBAND_ADDR((reg), (bit)))
+#endif
 
 const int SHIFT_REGISTER_CLK    = 13;
 const int SHIFT_REGISTER_LATCH  = 12;
@@ -184,7 +188,7 @@ void z80_start_fast_clock(void)
 
 void z80_bus_report_state(void)
 {
-    report("\n|%04x|%02x|%s|%s|%s|",
+    report("\r\n|%04x|%02x|%s|%s|%s|",
             z80_bus_address(), z80_bus_data(), 
             z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
             z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
@@ -260,14 +264,14 @@ uint8_t z80_bus_address_low8(void)
 
 uint8_t z80_bus_data(void)
 {
-    return (digitalRead(Z80_D0)  ? (1<<0)   : 0) |
-           (digitalRead(Z80_D1)  ? (1<<1)   : 0) |
-           (digitalRead(Z80_D2)  ? (1<<2)   : 0) |
-           (digitalRead(Z80_D3)  ? (1<<3)   : 0) |
-           (digitalRead(Z80_D4)  ? (1<<4)   : 0) |
-           (digitalRead(Z80_D5)  ? (1<<5)   : 0) |
-           (digitalRead(Z80_D6)  ? (1<<6)   : 0) |
-           (digitalRead(Z80_D7)  ? (1<<7)   : 0);
+    return  digitalRead(Z80_D0)       | // digitalRead() returns only 0 or 1
+           (digitalRead(Z80_D1) << 1) |
+           (digitalRead(Z80_D2) << 2) |
+           (digitalRead(Z80_D3) << 3) |
+           (digitalRead(Z80_D4) << 4) |
+           (digitalRead(Z80_D5) << 5) |
+           (digitalRead(Z80_D6) << 6) |
+           (digitalRead(Z80_D7) << 7);
 }
 
 void z80_set_busrq(bool request_dma)
@@ -354,7 +358,7 @@ void z80_clock_pulse_while_writing(void)
 
 void z80_do_reset(void)
 {
-    report("Z80 CPU Reset\n");
+    // report("Z80 CPU Reset\r\n");
     z80_set_reset(true);
     z80_set_release_wait(true);
     for(int i=0; i<10; i++){ // Z80 requires at least 3 clocks to fully reset
@@ -415,7 +419,7 @@ void z80_memory_write(unsigned short address, unsigned char data)
 void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
 {
     if(bank < 0 || bank > 3){
-        report("z80_set_mmu: bad bank %d!\n", bank);
+        report("z80_set_mmu: bad bank %d!\r\n", bank);
         return;
     }
     if(mmu[bank] == page)
@@ -445,8 +449,8 @@ void dma_test(void)
     z80_memory_write(1, 0x00);
     z80_memory_write(2, 0x80);
     
-	for(int i=0; i<ROM_SIZE; i++)
-		z80_memory_write(0x8000 + i, z80_rom[i]);
+	for(int i=0; i<MONITOR_ROM_SIZE; i++)
+		z80_memory_write(0x8000 + i, monitor_rom[i]);
 
     // shut it down!
     z80_bus_slave();

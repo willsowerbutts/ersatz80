@@ -1,0 +1,1 @@
+zmac basic.asm && ./makerom basic.c output.bin
