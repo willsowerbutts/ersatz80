@@ -124,7 +124,9 @@ void iodevice_write(uint16_t address, uint8_t value) // call ONLY when in DMA mo
         case 0x79: // bank1 page select -- Zeta2 compatible
         case 0x7A: // bank2 page select -- Zeta2 compatible
         case 0x7B: // bank3 page select -- Zeta2 compatible
+            z80_bus_master();
             z80_set_mmu((address & 0xFF) - 0x78, value);
+            z80_bus_slave();
             break;
         default:
             report("[IOW %04x %02x]", address, value);

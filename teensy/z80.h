@@ -46,6 +46,8 @@ const int Z80_D7                = 39;
 
 
 void shift_register_update(void);
+void z80_bus_master(void);
+void z80_bus_slave(void);
 void z80_setup(void);
 void z80_do_reset(void);
 void z80_set_clk(bool level);
