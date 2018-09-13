@@ -293,7 +293,7 @@ void setup() {
 
 void dma_test(void); // TEST
 
-void z80_complete_read(uint8_t data)
+inline void z80_complete_read(uint8_t data)
 {
     z80_setup_drive_data(data);
     z80_set_busrq(true);
@@ -305,7 +305,7 @@ void z80_complete_read(uint8_t data)
     // return with Z80 running
 }
 
-void z80_complete_write(void)
+inline void z80_complete_write(void)
 {
     z80_set_busrq(true);
     z80_set_release_wait(true);
