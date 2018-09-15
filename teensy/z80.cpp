@@ -19,6 +19,18 @@ void shift_register_update(void)
                  (z80_irq   ? 0 : 0x2000) |
                  (ram_ce    ? 0 : 0x1000);
 
+#ifdef KINETISK
+    // this can be made slightly faster by using the GPIO?_PSOR/PCOR 
+    // registers ... but then it's too fast for the 74AHCT595s!
+    for(int i=0; i<16; i++){
+        *portOutputRegister(SHIFT_REGISTER_DATA) = output;
+        *portOutputRegister(SHIFT_REGISTER_CLK) = 1;
+        output >>= 1;
+        *portOutputRegister(SHIFT_REGISTER_CLK) = 0;
+    }
+    *portOutputRegister(SHIFT_REGISTER_LATCH) = 1;
+    *portOutputRegister(SHIFT_REGISTER_LATCH) = 0;
+#else
     for(int i=0; i<16; i++){
         digitalWrite(SHIFT_REGISTER_DATA, output & 1);
         digitalWrite(SHIFT_REGISTER_CLK, 1);
@@ -27,44 +39,26 @@ void shift_register_update(void)
     }
     digitalWrite(SHIFT_REGISTER_LATCH, 1);
     digitalWrite(SHIFT_REGISTER_LATCH, 0);
+#endif
 }
 
 void z80_bus_master(void)
 {
 #ifdef KINETISK
-    *portModeRegister(Z80_A0  ) = 1;
-    *portModeRegister(Z80_A1  ) = 1;
-    *portModeRegister(Z80_A2  ) = 1;
-    *portModeRegister(Z80_A3  ) = 1;
-    *portModeRegister(Z80_A4  ) = 1;
-    *portModeRegister(Z80_A5  ) = 1;
-    *portModeRegister(Z80_A6  ) = 1;
-    *portModeRegister(Z80_A7  ) = 1;
-    *portModeRegister(Z80_A8  ) = 1;
-    *portModeRegister(Z80_A9  ) = 1;
-    *portModeRegister(Z80_A10 ) = 1;
-    *portModeRegister(Z80_A11 ) = 1;
-    *portModeRegister(Z80_A12 ) = 1;
-    *portModeRegister(Z80_A13 ) = 1;
-    *portModeRegister(Z80_A14 ) = 1;
-    *portModeRegister(Z80_A15 ) = 1;
-    *portModeRegister(Z80_D0  ) = 1;
-    *portModeRegister(Z80_D1  ) = 1;
-    *portModeRegister(Z80_D2  ) = 1;
-    *portModeRegister(Z80_D3  ) = 1;
-    *portModeRegister(Z80_D4  ) = 1;
-    *portModeRegister(Z80_D5  ) = 1;
-    *portModeRegister(Z80_D6  ) = 1;
-    *portModeRegister(Z80_D7  ) = 1;
-    // careful with these
-    *portOutputRegister(Z80_RD  ) = 1;
-    *portModeRegister(Z80_RD    ) = 1;
-    *portOutputRegister(Z80_WR  ) = 1;
-    *portModeRegister(Z80_WR    ) = 1;
-    *portOutputRegister(Z80_IORQ) = 1;
-    *portModeRegister(Z80_IORQ  ) = 1;
-    *portOutputRegister(Z80_MREQ) = 1;
-    *portModeRegister(Z80_MREQ  ) = 1;
+    // if(*portOutputRegister(Z80_MREQ) == 0)
+    //     report("z80_bus_master: MREQ=0!\r\n");
+    // if(*portOutputRegister(Z80_IORQ) == 0)
+    //     report("z80_bus_master: IORQ=0!\r\n");
+    // if(*portOutputRegister(Z80_WR) == 0)
+    //     report("z80_bus_master: WR=0!\r\n");
+    // if(*portOutputRegister(Z80_RD) == 0)
+    //     report("z80_bus_master: RD=0!\r\n");
+    GPIOA_PDDR |= ((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
+    GPIOB_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) |
+                   (1<<16) | (1<<17) | (1<<18) | (1<<19));
+    GPIOC_PDDR |= ((1<<1) | (1<<2) | (1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOD_PDDR |= ((1<<0) | (1<<5) | (1<<6));
+    GPIOE_PDDR |= ((1<<24) | (1<<25) | (1<<26));
 #else
     pinMode(Z80_A0,    OUTPUT);
     pinMode(Z80_A1,    OUTPUT);
@@ -90,10 +84,6 @@ void z80_bus_master(void)
     pinMode(Z80_D5,    OUTPUT);
     pinMode(Z80_D6,    OUTPUT);
     pinMode(Z80_D7,    OUTPUT);
-    digitalWrite(Z80_IORQ, 1);
-    digitalWrite(Z80_MREQ, 1);
-    digitalWrite(Z80_RD, 1);
-    digitalWrite(Z80_WR, 1);
     pinMode(Z80_IORQ,  OUTPUT);
     pinMode(Z80_MREQ,  OUTPUT);
     pinMode(Z80_RD,    OUTPUT);
@@ -104,34 +94,12 @@ void z80_bus_master(void)
 void z80_bus_slave(void)
 {
 #ifdef KINETISK
-    *portModeRegister(Z80_A0  ) = 0;
-    *portModeRegister(Z80_A1  ) = 0;
-    *portModeRegister(Z80_A2  ) = 0;
-    *portModeRegister(Z80_A3  ) = 0;
-    *portModeRegister(Z80_A4  ) = 0;
-    *portModeRegister(Z80_A5  ) = 0;
-    *portModeRegister(Z80_A6  ) = 0;
-    *portModeRegister(Z80_A7  ) = 0;
-    *portModeRegister(Z80_A8  ) = 0;
-    *portModeRegister(Z80_A9  ) = 0;
-    *portModeRegister(Z80_A10 ) = 0;
-    *portModeRegister(Z80_A11 ) = 0;
-    *portModeRegister(Z80_A12 ) = 0;
-    *portModeRegister(Z80_A13 ) = 0;
-    *portModeRegister(Z80_A14 ) = 0;
-    *portModeRegister(Z80_A15 ) = 0;
-    *portModeRegister(Z80_D0  ) = 0;
-    *portModeRegister(Z80_D1  ) = 0;
-    *portModeRegister(Z80_D2  ) = 0;
-    *portModeRegister(Z80_D3  ) = 0;
-    *portModeRegister(Z80_D4  ) = 0;
-    *portModeRegister(Z80_D5  ) = 0;
-    *portModeRegister(Z80_D6  ) = 0;
-    *portModeRegister(Z80_D7  ) = 0;
-    *portModeRegister(Z80_RD  ) = 0;
-    *portModeRegister(Z80_WR  ) = 0;
-    *portModeRegister(Z80_IORQ) = 0;
-    *portModeRegister(Z80_MREQ) = 0;
+    GPIOA_PDDR &=~((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
+    GPIOB_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) |
+                   (1<<16) | (1<<17) | (1<<18) | (1<<19));
+    GPIOC_PDDR &=~((1<<1) | (1<<2) | (1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOD_PDDR &=~((1<<0) | (1<<5) | (1<<6));
+    GPIOE_PDDR &=~((1<<24) | (1<<25) | (1<<26));
 #else
     pinMode(Z80_A0,    INPUT);
     pinMode(Z80_A1,    INPUT);
@@ -164,6 +132,43 @@ void z80_bus_slave(void)
 #endif
 }
 
+void z80_show_pin_states(void)
+{
+    report("Z80_A0     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A0    ), *portOutputRegister(Z80_A0    ), *portInputRegister(Z80_A0    ), *portModeRegister(Z80_A0    ) ? "OUTPUT":"input");
+    report("Z80_A1     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A1    ), *portOutputRegister(Z80_A1    ), *portInputRegister(Z80_A1    ), *portModeRegister(Z80_A1    ) ? "OUTPUT":"input");
+    report("Z80_A2     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A2    ), *portOutputRegister(Z80_A2    ), *portInputRegister(Z80_A2    ), *portModeRegister(Z80_A2    ) ? "OUTPUT":"input");
+    report("Z80_A3     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A3    ), *portOutputRegister(Z80_A3    ), *portInputRegister(Z80_A3    ), *portModeRegister(Z80_A3    ) ? "OUTPUT":"input");
+    report("Z80_A4     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A4    ), *portOutputRegister(Z80_A4    ), *portInputRegister(Z80_A4    ), *portModeRegister(Z80_A4    ) ? "OUTPUT":"input");
+    report("Z80_A5     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A5    ), *portOutputRegister(Z80_A5    ), *portInputRegister(Z80_A5    ), *portModeRegister(Z80_A5    ) ? "OUTPUT":"input");
+    report("Z80_A6     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A6    ), *portOutputRegister(Z80_A6    ), *portInputRegister(Z80_A6    ), *portModeRegister(Z80_A6    ) ? "OUTPUT":"input");
+    report("Z80_A7     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A7    ), *portOutputRegister(Z80_A7    ), *portInputRegister(Z80_A7    ), *portModeRegister(Z80_A7    ) ? "OUTPUT":"input");
+    report("Z80_A8     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A8    ), *portOutputRegister(Z80_A8    ), *portInputRegister(Z80_A8    ), *portModeRegister(Z80_A8    ) ? "OUTPUT":"input");
+    report("Z80_A9     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A9    ), *portOutputRegister(Z80_A9    ), *portInputRegister(Z80_A9    ), *portModeRegister(Z80_A9    ) ? "OUTPUT":"input");
+    report("Z80_A10    PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A10   ), *portOutputRegister(Z80_A10   ), *portInputRegister(Z80_A10   ), *portModeRegister(Z80_A10   ) ? "OUTPUT":"input");
+    report("Z80_A11    PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A11   ), *portOutputRegister(Z80_A11   ), *portInputRegister(Z80_A11   ), *portModeRegister(Z80_A11   ) ? "OUTPUT":"input");
+    report("Z80_A12    PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A12   ), *portOutputRegister(Z80_A12   ), *portInputRegister(Z80_A12   ), *portModeRegister(Z80_A12   ) ? "OUTPUT":"input");
+    report("Z80_A13    PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A13   ), *portOutputRegister(Z80_A13   ), *portInputRegister(Z80_A13   ), *portModeRegister(Z80_A13   ) ? "OUTPUT":"input");
+    report("Z80_A14    PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A14   ), *portOutputRegister(Z80_A14   ), *portInputRegister(Z80_A14   ), *portModeRegister(Z80_A14   ) ? "OUTPUT":"input");
+    report("Z80_A15    PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_A15   ), *portOutputRegister(Z80_A15   ), *portInputRegister(Z80_A15   ), *portModeRegister(Z80_A15   ) ? "OUTPUT":"input");
+    report("Z80_D0     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D0    ), *portOutputRegister(Z80_D0    ), *portInputRegister(Z80_D0    ), *portModeRegister(Z80_D0    ) ? "OUTPUT":"input");
+    report("Z80_D1     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D1    ), *portOutputRegister(Z80_D1    ), *portInputRegister(Z80_D1    ), *portModeRegister(Z80_D1    ) ? "OUTPUT":"input");
+    report("Z80_D2     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D2    ), *portOutputRegister(Z80_D2    ), *portInputRegister(Z80_D2    ), *portModeRegister(Z80_D2    ) ? "OUTPUT":"input");
+    report("Z80_D3     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D3    ), *portOutputRegister(Z80_D3    ), *portInputRegister(Z80_D3    ), *portModeRegister(Z80_D3    ) ? "OUTPUT":"input");
+    report("Z80_D4     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D4    ), *portOutputRegister(Z80_D4    ), *portInputRegister(Z80_D4    ), *portModeRegister(Z80_D4    ) ? "OUTPUT":"input");
+    report("Z80_D5     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D5    ), *portOutputRegister(Z80_D5    ), *portInputRegister(Z80_D5    ), *portModeRegister(Z80_D5    ) ? "OUTPUT":"input");
+    report("Z80_D6     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D6    ), *portOutputRegister(Z80_D6    ), *portInputRegister(Z80_D6    ), *portModeRegister(Z80_D6    ) ? "OUTPUT":"input");
+    report("Z80_D7     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_D7    ), *portOutputRegister(Z80_D7    ), *portInputRegister(Z80_D7    ), *portModeRegister(Z80_D7    ) ? "OUTPUT":"input");
+    report("Z80_M1     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_M1    ), *portOutputRegister(Z80_M1    ), *portInputRegister(Z80_M1    ), *portModeRegister(Z80_M1    ) ? "OUTPUT":"input");
+    report("Z80_RD     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_RD    ), *portOutputRegister(Z80_RD    ), *portInputRegister(Z80_RD    ), *portModeRegister(Z80_RD    ) ? "OUTPUT":"input");
+    report("Z80_WR     PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_WR    ), *portOutputRegister(Z80_WR    ), *portInputRegister(Z80_WR    ), *portModeRegister(Z80_WR    ) ? "OUTPUT":"input");
+    report("Z80_IORQ   PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_IORQ  ), *portOutputRegister(Z80_IORQ  ), *portInputRegister(Z80_IORQ  ), *portModeRegister(Z80_IORQ  ) ? "OUTPUT":"input");
+    report("Z80_MREQ   PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_MREQ  ), *portOutputRegister(Z80_MREQ  ), *portInputRegister(Z80_MREQ  ), *portModeRegister(Z80_MREQ  ) ? "OUTPUT":"input");
+    report("Z80_HALT   PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_HALT  ), *portOutputRegister(Z80_HALT  ), *portInputRegister(Z80_HALT  ), *portModeRegister(Z80_HALT  ) ? "OUTPUT":"input");
+    report("Z80_WAIT   PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_WAIT  ), *portOutputRegister(Z80_WAIT  ), *portInputRegister(Z80_WAIT  ), *portModeRegister(Z80_WAIT  ) ? "OUTPUT":"input");
+    report("Z80_BUSACK PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_BUSACK), *portOutputRegister(Z80_BUSACK), *portInputRegister(Z80_BUSACK), *portModeRegister(Z80_BUSACK) ? "OUTPUT":"input");
+    report("Z80_BUSRQ  PCR=%08x Out=%d In=%d %s\r\n", *portConfigRegister(Z80_BUSRQ ), *portOutputRegister(Z80_BUSRQ ), *portInputRegister(Z80_BUSRQ ), *portModeRegister(Z80_BUSRQ ) ? "OUTPUT":"input");
+}
+
 void z80_setup(void)
 {
     // shift register setup
@@ -176,6 +181,11 @@ void z80_setup(void)
     digitalWrite(SHIFT_REGISTER_DATA, 0);
     shift_register_update();
 
+    digitalWrite(Z80_IORQ, 1);
+    digitalWrite(Z80_MREQ, 1);
+    digitalWrite(Z80_RD, 1);
+    digitalWrite(Z80_WR, 1);
+    z80_bus_slave();
 #ifdef KINETISK
     // note SRE = slew rate limiting
     // we set the config ONCE ONLY, suitable for both input and output. we need to 
@@ -208,8 +218,14 @@ void z80_setup(void)
     *portConfigRegister(Z80_WR  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     *portConfigRegister(Z80_IORQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     *portConfigRegister(Z80_MREQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
+    // drive all Z80 bus pins to 1
+    GPIOA_PSOR = ((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
+    GPIOB_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) |
+                  (1<<16) | (1<<17) | (1<<18) | (1<<19));
+    GPIOC_PSOR = ((1<<1) | (1<<2) | (1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOD_PSOR = ((1<<0) | (1<<5) | (1<<6));
+    GPIOE_PSOR = ((1<<24) | (1<<25) | (1<<26));
 #endif
-    z80_bus_slave();
     pinMode(Z80_M1, INPUT);
     pinMode(Z80_WAIT, INPUT);
     pinMode(Z80_HALT, INPUT);
@@ -250,22 +266,28 @@ void z80_bus_report_state(void)
 uint16_t z80_bus_address(void)
 {
 #ifdef KINETISK
-    return  *portInputRegister(Z80_A0)         |
-           (*portInputRegister(Z80_A1)  <<  1) |
-           (*portInputRegister(Z80_A2)  <<  2) |
-           (*portInputRegister(Z80_A3)  <<  3) |
-           (*portInputRegister(Z80_A4)  <<  4) |
-           (*portInputRegister(Z80_A5)  <<  5) |
-           (*portInputRegister(Z80_A6)  <<  6) |
-           (*portInputRegister(Z80_A7)  <<  7) |
-           (*portInputRegister(Z80_A8)  <<  8) |
-           (*portInputRegister(Z80_A9)  <<  9) |
-           (*portInputRegister(Z80_A10) << 10) |
-           (*portInputRegister(Z80_A11) << 11) |
-           (*portInputRegister(Z80_A12) << 12) |
-           (*portInputRegister(Z80_A13) << 13) |
-           (*portInputRegister(Z80_A14) << 14) |
-           (*portInputRegister(Z80_A15) << 15);
+    unsigned int gpio_a = GPIOA_PDIR;
+    unsigned int gpio_b = GPIOB_PDIR;
+    unsigned int gpio_c = GPIOC_PDIR;
+    unsigned int gpio_d = GPIOD_PDIR;
+    unsigned int gpio_e = GPIOE_PDIR;
+
+    return ((gpio_b & (1<< 0 )) >> 0  <<  0) |
+           ((gpio_b & (1<< 1 )) >> 1  <<  1) |
+           ((gpio_b & (1<< 3 )) >> 3  <<  2) |
+           ((gpio_b & (1<< 2 )) >> 2  <<  3) |
+           ((gpio_d & (1<< 5 )) >> 5  <<  4) |
+           ((gpio_d & (1<< 6 )) >> 6  <<  5) |
+           ((gpio_c & (1<< 1 )) >> 1  <<  6) |
+           ((gpio_c & (1<< 2 )) >> 2  <<  7) |
+           ((gpio_e & (1<< 26)) >> 26 <<  8) |
+           ((gpio_a & (1<< 5 )) >> 5  <<  9) |
+           ((gpio_a & (1<< 14)) >> 14 << 10) |
+           ((gpio_a & (1<< 15)) >> 15 << 11) |
+           ((gpio_a & (1<< 16)) >> 16 << 12) |
+           ((gpio_b & (1<< 18)) >> 18 << 13) |
+           ((gpio_b & (1<< 19)) >> 19 << 14) |
+           ((gpio_b & (1<< 10)) >> 10 << 15);
 #else
     return  digitalRead(Z80_A0)         |
            (digitalRead(Z80_A1)  <<  1) |
@@ -289,14 +311,18 @@ uint16_t z80_bus_address(void)
 uint8_t z80_bus_address_low8(void)
 {
 #ifdef KINETISK
-    return  *portInputRegister(Z80_A0)       |
-           (*portInputRegister(Z80_A1) << 1) |
-           (*portInputRegister(Z80_A2) << 2) |
-           (*portInputRegister(Z80_A3) << 3) |
-           (*portInputRegister(Z80_A4) << 4) |
-           (*portInputRegister(Z80_A5) << 5) |
-           (*portInputRegister(Z80_A6) << 6) |
-           (*portInputRegister(Z80_A7) << 7);
+    unsigned int gpio_b = GPIOB_PDIR;
+    unsigned int gpio_c = GPIOC_PDIR;
+    unsigned int gpio_d = GPIOD_PDIR;
+
+    return ((gpio_b & (1<< 0 )) >>  0  <<  0) |
+           ((gpio_b & (1<< 1 )) >>  1  <<  1) |
+           ((gpio_b & (1<< 3 )) >>  3  <<  2) |
+           ((gpio_b & (1<< 2 )) >>  2  <<  3) |
+           ((gpio_d & (1<< 5 )) >>  5  <<  4) |
+           ((gpio_d & (1<< 6 )) >>  6  <<  5) |
+           ((gpio_c & (1<< 1 )) >>  1  <<  6) |
+           ((gpio_c & (1<< 2 )) >>  2  <<  7);
 #else
     return  digitalRead(Z80_A0)       |
            (digitalRead(Z80_A1) << 1) |
@@ -312,14 +338,19 @@ uint8_t z80_bus_address_low8(void)
 uint8_t z80_bus_data(void)
 {
 #ifdef KINETISK
-    return  *portInputRegister(Z80_D0)       |
-           (*portInputRegister(Z80_D1) << 1) |
-           (*portInputRegister(Z80_D2) << 2) |
-           (*portInputRegister(Z80_D3) << 3) |
-           (*portInputRegister(Z80_D4) << 4) |
-           (*portInputRegister(Z80_D5) << 5) |
-           (*portInputRegister(Z80_D6) << 6) |
-           (*portInputRegister(Z80_D7) << 7);
+    unsigned int gpio_a = GPIOA_PDIR;
+    unsigned int gpio_b = GPIOB_PDIR;
+    unsigned int gpio_c = GPIOC_PDIR;
+    unsigned int gpio_e = GPIOE_PDIR;
+
+    return ((gpio_b & (1<< 11 )) >> 11 << 0) |
+           ((gpio_e & (1<< 24 )) >> 24 << 1) |
+           ((gpio_e & (1<< 25 )) >> 25 << 2) |
+           ((gpio_c & (1<< 8  )) >> 8  << 3) |
+           ((gpio_c & (1<< 9  )) >> 9  << 4) |
+           ((gpio_c & (1<< 10 )) >> 10 << 5) |
+           ((gpio_c & (1<< 11 )) >> 11 << 6) |
+           ((gpio_a & (1<< 17 )) >> 17 << 7); 
 #else
     return  digitalRead(Z80_D0)       | // digitalRead() returns only 0 or 1
            (digitalRead(Z80_D1) << 1) |
@@ -357,15 +388,11 @@ void z80_clock_pulse(void)
 void z80_setup_drive_data(uint8_t data)
 {
 #ifdef KINETISK
-    *portModeRegister(Z80_D0) = 1;
-    *portModeRegister(Z80_D1) = 1;
-    *portModeRegister(Z80_D2) = 1;
-    *portModeRegister(Z80_D3) = 1;
-    *portModeRegister(Z80_D4) = 1;
-    *portModeRegister(Z80_D5) = 1;
-    *portModeRegister(Z80_D6) = 1;
-    *portModeRegister(Z80_D7) = 1;
-    *portOutputRegister(Z80_D0) = data; // register only looks at lowest bit
+    GPIOA_PDDR |= ((1<<17));
+    GPIOB_PDDR |= ((1<<11));
+    GPIOC_PDDR |= ((1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOE_PDDR |= ((1<<24) | (1<<25));
+    *portOutputRegister(Z80_D0) = data; // bitband memory accesses only consider the lowest bit
     *portOutputRegister(Z80_D1) = data >> 1;
     *portOutputRegister(Z80_D2) = data >> 2;
     *portOutputRegister(Z80_D3) = data >> 3;
@@ -396,14 +423,10 @@ void z80_setup_drive_data(uint8_t data)
 void z80_shutdown_drive_data(void)
 {
 #ifdef KINETISK
-    *portModeRegister(Z80_D0) = 0;
-    *portModeRegister(Z80_D1) = 0;
-    *portModeRegister(Z80_D2) = 0;
-    *portModeRegister(Z80_D3) = 0;
-    *portModeRegister(Z80_D4) = 0;
-    *portModeRegister(Z80_D5) = 0;
-    *portModeRegister(Z80_D6) = 0;
-    *portModeRegister(Z80_D7) = 0;
+    GPIOA_PDDR &= ~((1<<17));
+    GPIOB_PDDR &= ~((1<<11));
+    GPIOC_PDDR &= ~((1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOE_PDDR &= ~((1<<24) | (1<<25));
 #else
     pinMode(Z80_D0,   INPUT);
     pinMode(Z80_D1,   INPUT);
@@ -505,6 +528,7 @@ void z80_setup_address_data(uint16_t address, uint8_t data)
 
 void z80_mmu_write(uint16_t address, uint8_t data)
 {
+    /* assert(DMA_MODE / WR_ADDR | WR_DATA / ...)  ? to detect being called in wrong mode */
 	z80_setup_address_data(address, data);
     digitalWrite(MMU_EW, 0);
 	delayMicroseconds(1);
@@ -513,6 +537,7 @@ void z80_mmu_write(uint16_t address, uint8_t data)
 
 void z80_memory_write(uint16_t address, uint8_t data)
 {
+    /* assert(DMA_MODE / WR_ADDR | WR_DATA / ...)  ? to detect being called in wrong mode */
 	z80_setup_address_data(address, data);
     digitalWrite(Z80_MREQ, 0);
     digitalWrite(Z80_WR, 0);
@@ -536,7 +561,7 @@ void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
 void dma_test(void)
 {
     // put our program into RAM
-    digitalWrite(Z80_BUSRQ, 0);     // assert BUSRQ
+    z80_set_busrq(true);
     while(digitalRead(Z80_BUSACK))  // wait for BUSACK
         z80_clock_pulse();          // need to check /WAIT etc in here!
     // now we're in charge!
@@ -546,20 +571,20 @@ void dma_test(void)
 
 	// setup the MMU
     for(int i=0; i<4; i++){
-        mmu[i] = 0xaa;
+        mmu[i] = 0xaa; // force an update
         z80_set_mmu(i, i);
     }
 
     z80_memory_write(0, 0xc3);
-    z80_memory_write(1, 0x00);
-    z80_memory_write(2, 0x80);
+    z80_memory_write(1, MONITOR_ROM_START & 0xFF);
+    z80_memory_write(2, MONITOR_ROM_START >> 8);
     
 	for(int i=0; i<MONITOR_ROM_SIZE; i++)
-		z80_memory_write(0x8000 + i, monitor_rom[i]);
+		z80_memory_write(MONITOR_ROM_START + i, monitor_rom[i]);
 
     // shut it down!
-    z80_bus_slave();
     ram_ce = false;
     shift_register_update();
-    digitalWrite(Z80_BUSRQ, 1);     // release BUSRQ to end DMA
+    z80_bus_slave();
+    z80_set_busrq(false);
 }

@@ -59,6 +59,11 @@ void supervisor_menu(void)
             z80_bus_trace = false;
         else if(is_cmd("regs"))
             z80_show_regs();
+        else if(is_cmd("reset")){
+            z80_set_reset(true);
+            delayMicroseconds(10);
+            z80_set_reset(false);
+        }
         // else if(is_cmd("trace mem"))
         //     z80_mem_trace = ... it'd be nice to choose read/write/both ... ?
         // else if(is_cmd("trace io"))
@@ -124,6 +129,7 @@ void iodevice_write(uint16_t address, uint8_t value) // call ONLY when in DMA mo
         case 0x79: // bank1 page select -- Zeta2 compatible
         case 0x7A: // bank2 page select -- Zeta2 compatible
         case 0x7B: // bank3 page select -- Zeta2 compatible
+            // we might be called in different contexts -- we might already be bus master? or Z80 still running?
             z80_bus_master();
             z80_set_mmu((address & 0xFF) - 0x78, value);
             z80_bus_slave();

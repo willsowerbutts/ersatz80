@@ -3,47 +3,48 @@
 
 #include <Arduino.h>
 
-const int SHIFT_REGISTER_CLK    = 13;
-const int SHIFT_REGISTER_LATCH  = 12;
-const int SHIFT_REGISTER_DATA   = 11;
-const int Z80_IORQ              = 0;
-const int Z80_MREQ              = 1;
-const int Z80_RD                = 2;
-const int Z80_WR                = 3;
-const int Z80_M1                = 4;
-const int Z80_WAIT              = 5;
-const int Z80_HALT              = 10;
-const int WAIT_RESET            = 6;
-const int CLK_STROBE            = 7;
-const int CLK_FAST_ENABLE       = 8;
-const int Z80_BUSACK            = 9;
-const int Z80_BUSRQ             = 14;
-const int MMU_EW                = 15;
-const int Z80_A0                = 16;
-const int Z80_A1                = 17;
-const int Z80_A2                = 18;
-const int Z80_A3                = 19;
-const int Z80_A4                = 20;
-const int Z80_A5                = 21;
-const int Z80_A6                = 22;
-const int Z80_A7                = 23;
-const int Z80_A8                = 24;
-const int Z80_A9                = 25;
-const int Z80_A10               = 26;
-const int Z80_A11               = 27;
-const int Z80_A12               = 28;
-const int Z80_A13               = 29;
-const int Z80_A14               = 30;
-const int Z80_A15               = 31;
-const int Z80_D0                = 32;
-const int Z80_D1                = 33;
-const int Z80_D2                = 34;
-const int Z80_D3                = 35;
-const int Z80_D4                = 36;
-const int Z80_D5                = 37;
-const int Z80_D6                = 38;
-const int Z80_D7                = 39;
+const int CLK_FAST_ENABLE       = 8;        // GPIO D 3
+const int CLK_STROBE            = 7;        // GPIO D 2
+const int MMU_EW                = 15;       // GPIO C 0
+const int SHIFT_REGISTER_DATA   = 11;       // GPIO C 6
+const int SHIFT_REGISTER_LATCH  = 12;       // GPIO C 7
+const int SHIFT_REGISTER_CLK    = 13;       // GPIO C 5
+const int WAIT_RESET            = 6;        // GPIO D 4
+const int Z80_A0                = 16;       // GPIO B 0
+const int Z80_A1                = 17;       // GPIO B 1
+const int Z80_A2                = 18;       // GPIO B 3
+const int Z80_A3                = 19;       // GPIO B 2
+const int Z80_A4                = 20;       // GPIO D 5
+const int Z80_A5                = 21;       // GPIO D 6
+const int Z80_A6                = 22;       // GPIO C 1
+const int Z80_A7                = 23;       // GPIO C 2
+const int Z80_A8                = 24;       // GPIO E 26
+const int Z80_A9                = 25;       // GPIO A 5
+const int Z80_A10               = 26;       // GPIO A 14
+const int Z80_A11               = 27;       // GPIO A 15
+const int Z80_A12               = 28;       // GPIO A 16
+const int Z80_A13               = 29;       // GPIO B 18
+const int Z80_A14               = 30;       // GPIO B 19
+const int Z80_A15               = 31;       // GPIO B 10
+const int Z80_BUSACK            = 9;        // GPIO C 3
+const int Z80_BUSRQ             = 14;       // GPIO D 1
+const int Z80_D0                = 32;       // GPIO B 11
+const int Z80_D1                = 33;       // GPIO E 24
+const int Z80_D2                = 34;       // GPIO E 25
+const int Z80_D3                = 35;       // GPIO C 8
+const int Z80_D4                = 36;       // GPIO C 9
+const int Z80_D5                = 37;       // GPIO C 10
+const int Z80_D6                = 38;       // GPIO C 11
+const int Z80_D7                = 39;       // GPIO A 17
+const int Z80_M1                = 4;        // GPIO A 13
+const int Z80_RD                = 2;        // GPIO D 0
+const int Z80_WR                = 3;        // GPIO A 12
+const int Z80_IORQ              = 0;        // GPIO B 16
+const int Z80_MREQ              = 1;        // GPIO B 17
+const int Z80_HALT              = 10;       // GPIO C 4
+const int Z80_WAIT              = 5;        // GPIO D 7
 
+// GPIO{A,B,C,D,E}_{PDOR,PSOR,PDOR,PCOR,PDDR,PDIR}
 
 void shift_register_update(void);
 void z80_bus_master(void);
@@ -64,6 +65,7 @@ void z80_start_fast_clock(void);
 void z80_setup_drive_data(uint8_t data);
 void z80_shutdown_drive_data(void);
 void z80_set_mmu(int bank, uint8_t page);
+void z80_show_pin_states(void);
 
 extern uint16_t user_led;
 extern bool z80_reset;
