@@ -506,21 +506,64 @@ void z80_setup_address_data(uint16_t address, uint8_t data)
 void z80_mmu_write(uint16_t address, uint8_t data)
 {
     /* assert(DMA_MODE / WR_ADDR | WR_DATA / ...)  ? to detect being called in wrong mode */
-	z80_setup_address_data(address, data);
+    z80_setup_address_data(address, data);
+#ifdef KINETISK
+    *portOutputRegister(MMU_EW) = 0;
+    *portOutputRegister(MMU_EW) = 1;
+#else
     digitalWrite(MMU_EW, 0);
-	delayMicroseconds(1);
+    delayMicroseconds(1);
     digitalWrite(MMU_EW, 1);
+#endif
+}
+
+void z80_wipe_page(void)
+{
+    z80_setup_address_data(0, 0);
+    *portOutputRegister(Z80_MREQ) = 0;
+    *portOutputRegister(Z80_WR) = 0;
+    // there must be a more efficient way to do this, since
+    // relatively few of the pins change on most cycles:
+    for(int i=0; i<16384; i++){
+        *portOutputRegister(Z80_A0 ) = i;
+        *portOutputRegister(Z80_A1 ) = i >>  1;
+        *portOutputRegister(Z80_A2 ) = i >>  2;
+        *portOutputRegister(Z80_A3 ) = i >>  3;
+        *portOutputRegister(Z80_A4 ) = i >>  4;
+        *portOutputRegister(Z80_A5 ) = i >>  5;
+        *portOutputRegister(Z80_A6 ) = i >>  6;
+        *portOutputRegister(Z80_A7 ) = i >>  7;
+        if(!(i&0xff)){ // skip updating this half
+            *portOutputRegister(Z80_A8 ) = i >>  8;
+            *portOutputRegister(Z80_A9 ) = i >>  9;
+            *portOutputRegister(Z80_A10) = i >> 10;
+            *portOutputRegister(Z80_A11) = i >> 11;
+            *portOutputRegister(Z80_A12) = i >> 12;
+            *portOutputRegister(Z80_A13) = i >> 13;
+            *portOutputRegister(Z80_A14) = i >> 14;
+            *portOutputRegister(Z80_A15) = i >> 15;
+        }
+    }
+    *portOutputRegister(Z80_WR) = 1;
+    *portOutputRegister(Z80_MREQ) = 1;
 }
 
 void z80_memory_write(uint16_t address, uint8_t data)
 {
     /* assert(DMA_MODE / WR_ADDR | WR_DATA / ...)  ? to detect being called in wrong mode */
-	z80_setup_address_data(address, data);
+    z80_setup_address_data(address, data);
+#ifdef KINETISK
+    *portOutputRegister(Z80_MREQ) = 0;
+    *portOutputRegister(Z80_WR) = 0;
+    *portOutputRegister(Z80_WR) = 1;
+    *portOutputRegister(Z80_MREQ) = 1;
+#else
     digitalWrite(Z80_MREQ, 0);
     digitalWrite(Z80_WR, 0);
-	delayMicroseconds(1);
+    delayMicroseconds(1);
     digitalWrite(Z80_WR, 1);
     digitalWrite(Z80_MREQ, 1);
+#endif
 }
 
 void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
@@ -546,7 +589,17 @@ void dma_test(void)
     shift_register_update();
     z80_bus_master();
 
-	// setup the MMU
+    // wipe RAM
+    report("Wipe RAM: page __");
+    mmu[0] = 0xaa; // force update
+    for(int i=0; i<(1024/16); i++){
+        report("\x08\x08%02d", i);
+        z80_set_mmu(0, i);
+        z80_wipe_page();
+    }
+    report("\x08\x08\x08\x08\x08\x08\x08" "1024KB    \r\n");
+
+    // setup the MMU
     for(int i=0; i<4; i++){
         mmu[i] = 0xaa; // force an update
         z80_set_mmu(i, i);
@@ -556,8 +609,8 @@ void dma_test(void)
     z80_memory_write(1, MONITOR_ROM_START & 0xFF);
     z80_memory_write(2, MONITOR_ROM_START >> 8);
     
-	for(int i=0; i<MONITOR_ROM_SIZE; i++)
-		z80_memory_write(MONITOR_ROM_START + i, monitor_rom[i]);
+    for(int i=0; i<MONITOR_ROM_SIZE; i++)
+        z80_memory_write(MONITOR_ROM_START + i, monitor_rom[i]);
 
     // shut it down!
     ram_ce = false;
