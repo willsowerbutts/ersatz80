@@ -171,6 +171,8 @@ void z80_show_pin_states(void)
 
 void z80_setup(void)
 {
+    z80_clk_init();
+
     // shift register setup
     pinMode(SHIFT_REGISTER_CLK, OUTPUT);
     pinMode(SHIFT_REGISTER_LATCH, OUTPUT);
@@ -235,24 +237,15 @@ void z80_setup(void)
     // system
     pinMode(MMU_EW, OUTPUT);
     pinMode(WAIT_RESET, OUTPUT);
-    pinMode(CLK_STROBE, OUTPUT);
-    pinMode(CLK_FAST_ENABLE, OUTPUT);
     
     digitalWrite(Z80_BUSRQ, 1);
     digitalWrite(MMU_EW, 1);
     digitalWrite(WAIT_RESET, 1);
-    digitalWrite(CLK_STROBE, 0);
-    digitalWrite(CLK_FAST_ENABLE, 0);
 
     z80_set_clk(true);
     z80_set_reset(true);
 }
 
-void z80_start_fast_clock(void)
-{
-    digitalWrite(CLK_STROBE, 1);
-    digitalWrite(CLK_FAST_ENABLE, 1);
-}
 
 void z80_bus_report_state(void)
 {
@@ -367,22 +360,6 @@ void z80_set_reset(bool active)
 {
     z80_reset = active;
     shift_register_update();
-}
-
-void z80_set_clk(bool level)
-{
-    if(level){
-        digitalWrite(CLK_STROBE, 0); // CLK high
-        if(z80_bus_trace)
-            z80_bus_report_state();
-    }else
-        digitalWrite(CLK_STROBE, 1); // CLK low
-}
-
-void z80_clock_pulse(void)
-{
-    z80_set_clk(false);
-    z80_set_clk(true);
 }
 
 void z80_setup_drive_data(uint8_t data)

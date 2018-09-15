@@ -51,7 +51,6 @@ void z80_bus_master(void);
 void z80_bus_slave(void);
 void z80_setup(void);
 void z80_do_reset(void);
-void z80_set_clk(bool level);
 void z80_set_reset(bool active);
 void z80_clock_pulse_drive_data(uint8_t data);
 void z80_clock_pulse_while_writing(void);
@@ -61,11 +60,12 @@ uint16_t z80_bus_address(void);
 uint8_t z80_bus_address_low8(void);
 uint8_t z80_bus_data(void);
 void z80_set_release_wait(bool release);
-void z80_start_fast_clock(void);
 void z80_setup_drive_data(uint8_t data);
 void z80_shutdown_drive_data(void);
 void z80_set_mmu(int bank, uint8_t page);
+
 void z80_show_pin_states(void);
+void z80_bus_report_state(void);
 
 extern uint16_t user_led;
 extern bool z80_reset;
@@ -96,5 +96,13 @@ inline bool z80_mreq_asserted(void)    { return !digitalRead(Z80_MREQ);   }
 inline void z80_set_busrq(bool request_dma)    { digitalWrite(Z80_BUSRQ,  !request_dma); } 
 inline void z80_set_release_wait(bool release) { digitalWrite(WAIT_RESET, !release); } 
 #endif
+
+// clock.cpp:
+void z80_clk_init(void);
+void z80_clk_switch_stop(void);
+void z80_clk_switch_fast(void);
+void z80_clk_switch_slow(float frequency);
+void z80_set_clk(bool level);
+
 
 #endif

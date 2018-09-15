@@ -53,16 +53,28 @@ void supervisor_menu(void)
         report("Supervisor> ");
         serial_read_line((unsigned char*)buf, SBUFLEN);
         report("\r\n");
-        if(is_cmd("trace bus"))
+        if(is_cmd("trace bus")){
             z80_bus_trace = true;
-        else if(is_cmd("no trace bus"))
+        }else if(is_cmd("no trace bus")){
             z80_bus_trace = false;
-        else if(is_cmd("regs"))
+        }else if(is_cmd("regs")){
             z80_show_regs();
-        else if(is_cmd("reset")){
+        }else if(is_cmd("clk stop")){
+            z80_clk_switch_stop();
+        }else if(is_cmd("clk fast")){
+            z80_clk_switch_fast();
+        }else if(is_cmd("clk slow")){
+            z80_clk_switch_slow(40000); // TODO - parse arguments and take frequency from typed command
+        }else if(is_cmd("reset")){
             z80_set_reset(true);
-            delayMicroseconds(10);
+            delay(10);
+            z80_set_release_wait(true);
+            z80_set_release_wait(false);
             z80_set_reset(false);
+        }else if(is_cmd("quit") || is_cmd("exit")){
+            break;
+        }else{
+            report("???\r\n");
         }
         // else if(is_cmd("trace mem"))
         //     z80_mem_trace = ... it'd be nice to choose read/write/both ... ?
@@ -73,10 +85,6 @@ void supervisor_menu(void)
         // 0422: 83 02 30  ld de,(3002)
         //       3002: 9302
         // 0425: ...
-        else if(is_cmd("quit") || is_cmd("exit"))
-            break;
-        else
-            report("???\r\n");
         // trace all bus states
         // trace memory reads
         // trace memory writes
@@ -221,7 +229,7 @@ void z80_show_regs(void)
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
     uint8_t i;
 
-    /* NEEDS TO CHANGE CLOCK HERE */
+    z80_clk_switch_stop();                       // stop the fast clock
 
     // this code does not deal with the situation where CPU is HALTed.
     // solution might be: wake CPU with an int/nmi, capture PC when it writes it to the
@@ -231,9 +239,14 @@ void z80_show_regs(void)
     // if we're partway through an M1 cycle, allow it to complete first
     while(z80_m1_asserted())
         z80_tick_tock();
+
     // wait for a new M1 cycle to start
     while(!z80_m1_asserted())
         z80_tick_tock();
+
+    // disable the RAM so we can control the data bus
+    ram_ce = false;
+    shift_register_update();
 
     // now we feed it a synthesised instruction - F5 (PUSH AF)
     while(!(z80_mreq_asserted() && z80_rd_asserted()))
@@ -280,6 +293,10 @@ void z80_show_regs(void)
     z80_send_instruction(0xC3);                  // JP xxxx
     z80_send_instruction(pc & 0xFF);             //  ...
     z80_send_instruction(pc >> 8);               //  ...
+
+    ram_ce = true;                               // turn back on the RAM
+    shift_register_update();
+    z80_clk_switch_fast();                       // resume warp speed
 
     report("PC=%04x SP=%04x\r\nAF=%04x AF'=%04x\r\n" \
            "BC=%04x BC'=%04x\r\nDE=%04x DE'=%04x\r\n" \
@@ -328,7 +345,7 @@ void loop() {
     z80_do_reset();
     ram_ce = true;
     shift_register_update();
-    z80_start_fast_clock();
+    z80_clk_switch_fast();
 
     while(true){
         if(z80_wait_asserted()){
