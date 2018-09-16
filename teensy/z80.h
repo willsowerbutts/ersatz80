@@ -50,6 +50,9 @@ void shift_register_update(void);
 void z80_bus_master(void);
 void z80_bus_slave(void);
 void z80_setup(void);
+void mmu_setup(void);
+void sram_setup(void);
+void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address, bool jump_from_reset);
 void z80_do_reset(void);
 void z80_set_reset(bool active);
 void z80_clock_pulse_drive_data(uint8_t data);
@@ -74,6 +77,7 @@ extern bool z80_nmi;
 extern bool ram_ce;
 extern bool z80_bus_trace;
 extern uint8_t mmu[4];
+extern uint8_t ram_pages; // count of 16KB SRAM pages
 
 #ifdef KINETISK
 inline bool z80_wr_asserted(void)      { return !*portInputRegister(Z80_WR);     } 
@@ -103,6 +107,7 @@ void z80_clk_switch_stop(void);
 void z80_clk_switch_fast(void);
 float z80_clk_switch_slow(float frequency);
 void z80_set_clk(bool level);
+bool z80_clk_running(void);
 
 
 #endif

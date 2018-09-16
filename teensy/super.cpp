@@ -99,7 +99,7 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
     if(!strcasecmp(argv[0], "quit") || !strcasecmp(argv[0], "exit"))
         return false;
 
-    for(cmd_entry_t *cmd=cmd_table; cmd->name; cmd++){
+    for(const cmd_entry_t *cmd=cmd_table; cmd->name; cmd++){
         if(!strcasecmp(argv[0], cmd->name)){
             if(cmd->function == NULL){
                 return false;

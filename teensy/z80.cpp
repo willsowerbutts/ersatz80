@@ -10,6 +10,7 @@ bool z80_nmi = false;        // Z80 /NMI pin
 bool ram_ce = false;         // RAM /CE pin
 bool z80_bus_trace = false;
 uint8_t mmu[4];
+uint8_t ram_pages = 0;
 
 void shift_register_update(void)
 {
@@ -246,7 +247,6 @@ void z80_setup(void)
     z80_set_reset(true);
 }
 
-
 void z80_bus_report_state(void)
 {
     report("\r\n|%04x|%02x|%s|%s|%s|",
@@ -447,6 +447,45 @@ void z80_do_reset(void)
     z80_set_reset(false);
 }
 
+void z80_setup_address(uint16_t address)
+{
+#ifdef KINETISK
+    *portOutputRegister(Z80_A0 ) = address;
+    *portOutputRegister(Z80_A1 ) = address >>  1;
+    *portOutputRegister(Z80_A2 ) = address >>  2;
+    *portOutputRegister(Z80_A3 ) = address >>  3;
+    *portOutputRegister(Z80_A4 ) = address >>  4;
+    *portOutputRegister(Z80_A5 ) = address >>  5;
+    *portOutputRegister(Z80_A6 ) = address >>  6;
+    *portOutputRegister(Z80_A7 ) = address >>  7;
+    *portOutputRegister(Z80_A8 ) = address >>  8;
+    *portOutputRegister(Z80_A9 ) = address >>  9;
+    *portOutputRegister(Z80_A10) = address >> 10;
+    *portOutputRegister(Z80_A11) = address >> 11;
+    *portOutputRegister(Z80_A12) = address >> 12;
+    *portOutputRegister(Z80_A13) = address >> 13;
+    *portOutputRegister(Z80_A14) = address >> 14;
+    *portOutputRegister(Z80_A15) = address >> 15;
+#else
+    digitalWrite(Z80_A0,  address & (1<<0)  ? 1 : 0);
+    digitalWrite(Z80_A1,  address & (1<<1)  ? 1 : 0);
+    digitalWrite(Z80_A2,  address & (1<<2)  ? 1 : 0);
+    digitalWrite(Z80_A3,  address & (1<<3)  ? 1 : 0);
+    digitalWrite(Z80_A4,  address & (1<<4)  ? 1 : 0);
+    digitalWrite(Z80_A5,  address & (1<<5)  ? 1 : 0);
+    digitalWrite(Z80_A6,  address & (1<<6)  ? 1 : 0);
+    digitalWrite(Z80_A7,  address & (1<<7)  ? 1 : 0);
+    digitalWrite(Z80_A8,  address & (1<<8)  ? 1 : 0);
+    digitalWrite(Z80_A9,  address & (1<<9)  ? 1 : 0);
+    digitalWrite(Z80_A10, address & (1<<10) ? 1 : 0);
+    digitalWrite(Z80_A11, address & (1<<11) ? 1 : 0);
+    digitalWrite(Z80_A12, address & (1<<12) ? 1 : 0);
+    digitalWrite(Z80_A13, address & (1<<13) ? 1 : 0);
+    digitalWrite(Z80_A14, address & (1<<14) ? 1 : 0);
+    digitalWrite(Z80_A15, address & (1<<15) ? 1 : 0);
+#endif
+}
+
 void z80_setup_address_data(uint16_t address, uint8_t data)
 {
 #ifdef KINETISK
@@ -566,6 +605,28 @@ void z80_memory_write(uint16_t address, uint8_t data)
 #endif
 }
 
+uint8_t z80_memory_read(uint16_t address)
+{
+    uint8_t byte;
+    z80_setup_address(address);
+    z80_shutdown_drive_data();
+#ifdef KINETISK
+    *portOutputRegister(Z80_MREQ) = 0;
+    *portOutputRegister(Z80_RD) = 0;
+    byte = z80_bus_data();
+    *portOutputRegister(Z80_RD) = 1;
+    *portOutputRegister(Z80_MREQ) = 1;
+#else
+    digitalWrite(Z80_MREQ, 0);
+    digitalWrite(Z80_RD, 0);
+    byte = z80_bus_data();
+    digitalWrite(Z80_RD, 1);
+    digitalWrite(Z80_MREQ, 1);
+#endif
+    z80_setup_drive_data(0);
+    return byte;
+}
+
 void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
 {
     if(bank < 0 || bank > 3){
@@ -578,43 +639,108 @@ void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
     z80_mmu_write(bank << 14, page);
 }
 
-void dma_test(void)
+void begin_dma(void)
 {
-    // put our program into RAM
+    // this is incomplete. only really useful when Z80 is held in reset.
     z80_set_busrq(true);
-    while(digitalRead(Z80_BUSACK))  // wait for BUSACK
-        z80_clock_pulse();          // need to check /WAIT etc in here!
-    // now we're in charge!
-    ram_ce = true;
-    shift_register_update();
-    z80_bus_master();
-
-    // wipe RAM
-    report("Wipe RAM: page __");
-    mmu[0] = 0xaa; // force update
-    for(int i=0; i<(1024/16); i++){
-        report("\x08\x08%02d", i);
-        z80_set_mmu(0, i);
-        z80_wipe_page();
+    while(!z80_busack_asserted()){  // wait for BUSACK
+        // TODO -- check /WAIT etc in here
+        if(!z80_clk_running())
+            z80_clock_pulse();
     }
-    report("\x08\x08\x08\x08\x08\x08\x08" "1024KB    \r\n");
+    z80_bus_master();
+}
 
-    // setup the MMU
+void end_dma(void)
+{
+    z80_bus_slave();
+    z80_set_busrq(false);
+}
+
+void mmu_setup(void)
+{
+    begin_dma();
+
     for(int i=0; i<4; i++){
         mmu[i] = 0xaa; // force an update
         z80_set_mmu(i, i);
     }
 
-    z80_memory_write(0, 0xc3);
-    z80_memory_write(1, MONITOR_ROM_START & 0xFF);
-    z80_memory_write(2, MONITOR_ROM_START >> 8);
-    
-    for(int i=0; i<MONITOR_ROM_SIZE; i++)
-        z80_memory_write(MONITOR_ROM_START + i, monitor_rom[i]);
+    end_dma();
+}
 
-    // shut it down!
-    ram_ce = false;
+void sram_setup(void)
+{
+    int i;
+
+    begin_dma();
+
+    // stash current state
+    bool old_ram_ce = ram_ce;
+    uint8_t old_mmu = mmu[0];
+
+    // enable the SRAM
+    ram_ce = true;
     shift_register_update();
-    z80_bus_slave();
-    z80_set_busrq(false);
+
+    // wipe RAM
+    report("Wipe RAM: page __");
+    for(i=0; i<256; i++){
+        report("\x08\x08%02d", i);
+        z80_set_mmu(0, i);
+        // is it really there?
+        z80_memory_write(0, 0xaa);
+        z80_memory_write(1, 0x55);
+        z80_memory_write(2, 0x00);
+        z80_memory_write(3, i);
+        z80_memory_write(16383, i);
+        z80_memory_write(16382, 0x00);
+        z80_memory_write(16381, 0x55);
+        z80_memory_write(16380, 0xaa);
+        if(z80_memory_read(0) != 0xaa ||
+           z80_memory_read(1) != 0x55 ||
+           z80_memory_read(2) != 0x00 ||
+           z80_memory_read(3) != i ||
+           z80_memory_read(16380) != 0xaa ||
+           z80_memory_read(16381) != 0x55 ||
+           z80_memory_read(16382) != 0x00 ||
+           z80_memory_read(16383) != i)
+            break;
+        // yup, it seems to be there!
+        z80_wipe_page();
+    }
+    ram_pages = i;
+    report("\x08\x08\x08\x08\x08\x08\x08%d pages (%dKB)\r\n", ram_pages, 16*ram_pages);
+
+    // return machine to previous state
+    ram_ce = old_ram_ce;
+    shift_register_update();
+    z80_set_mmu(0, old_mmu);
+    end_dma();
+}
+
+void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address, bool jump_from_reset)
+{
+    begin_dma();
+
+    // stash current state
+    bool old_ram_ce = ram_ce;
+
+    // enable the SRAM
+    ram_ce = true;
+    shift_register_update();
+
+    if(jump_from_reset){
+        z80_memory_write(0, 0xc3); // JP instruction
+        z80_memory_write(1, start_address & 0xFF);
+        z80_memory_write(2, start_address >> 8);
+    }
+    
+    for(int i=0; i<length; i++)
+        z80_memory_write(address++, program[i]);
+
+    // restore machine state
+    ram_ce = old_ram_ce;
+    shift_register_update();
+    end_dma();
 }

@@ -4,7 +4,13 @@
 
 typedef enum { CLK_FAST, CLK_SLOW, CLK_STOP } clk_mode_t;
 clk_mode_t clk_mode;
-float clk_slow_freq;
+float clk_slow_requested; // requested frequency for slow clock
+float clk_slow_freq;      // actual frequency of slow clock
+
+bool z80_clk_running(void)
+{
+    return (clk_mode != CLK_STOP);
+}
 
 void z80_clk_init(void)
 {
@@ -96,8 +102,8 @@ float z80_clk_switch_slow(float frequency)
 {
     switch(clk_mode){
         case CLK_SLOW:
-            if(clk_slow_freq == frequency)
-                return;
+            if(clk_slow_requested == frequency)
+                return clk_slow_freq;
             break;
         case CLK_FAST:
             z80_clk_fast_stop();
@@ -106,8 +112,9 @@ float z80_clk_switch_slow(float frequency)
             break;
     }
     clk_mode = CLK_SLOW;
-    clk_slow_freq = frequency;
-    return z80_clk_slow_start(frequency);
+    clk_slow_requested = frequency;
+    clk_slow_freq = z80_clk_slow_start(frequency);
+    return clk_slow_freq;
 }
 
 void z80_set_clk(bool level)

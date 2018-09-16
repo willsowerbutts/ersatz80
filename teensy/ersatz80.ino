@@ -7,11 +7,7 @@
 #include "super.h"
 #include "rom.h"
 
-typedef unsigned char uint8_t;
-
-#define ROM_ADDR_MASK (0x3FFF) // 16KB
-
-#define UART_RX_FIFO_BUFFER_SIZE 32
+#define UART_RX_FIFO_BUFFER_SIZE 128
 uint8_t uart_rx_fifo_waiting = 0;
 uint8_t uart_rx_fifo_start = 0;
 uint8_t uart_rx_fifo_buffer[UART_RX_FIFO_BUFFER_SIZE];
@@ -248,18 +244,6 @@ void z80_show_regs(void)
            hl, hl_, ix, iy, i);
 }
 
-void setup() {
-    z80_setup();
-    Serial.begin(9600);
-    while(!Serial.dtr()); // wait for someone to open the USB device
-    report("ersatz80: init\r\n");
-    report("ersatz80: reset Z80\r\n");
-    z80_do_reset();
-    report("Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
-}
-
-void dma_test(void); // TEST
-
 inline void z80_complete_read(uint8_t data)
 {
     z80_setup_drive_data(data);
@@ -327,16 +311,29 @@ void handle_serial_input(void)
     }
 }
 
-void loop() {
-    // startup - copy monitor ROM into RAM etc
-    dma_test();
+void setup() {
+    z80_setup();
+    Serial.begin(9600);
+    while(!Serial.dtr()); // wait for a terminal to connect to the USB serial device
+    report("ersatz80: init\r\n");
     z80_do_reset();
+    mmu_setup();
+    sram_setup();
+    report("ersatz80: load ROM\r\n");
+    load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START, true);
+    report("ersatz80: reset Z80\r\n");
+    z80_do_reset();
+    report("Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
+    // start up the Z80
     ram_ce = true;
     shift_register_update();
     z80_clk_switch_fast();
+}
 
+void loop() {
     while(true){
-        handle_z80_bus();
+        if(z80_clk_running())
+            handle_z80_bus();
         handle_serial_input();
     }
 }
