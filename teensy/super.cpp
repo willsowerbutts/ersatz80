@@ -31,6 +31,22 @@ void supervisor_menu(void)
     debug_boldoff();
 }
 
+typedef struct {
+    const char *name;
+    void (*function)(int argc, char *argv[]);
+} cmd_entry_t;
+
+const cmd_entry_t cmd_table[] = {
+    { "quit",       NULL },
+    { "exit",       NULL },
+    { "q",          NULL },
+    { "regs",       &super_regs },
+    { "clk",        &super_clk },
+    { "reset",      &super_reset },
+    // list terminator:
+    { NULL,         NULL }
+};
+
 bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit etc, true otherwise
 {
     int argc = 0;
@@ -50,31 +66,21 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
         *(p++) = 0; // overwrite whitespace with NUL
     }
 
-    // report("parsed: argc=%d", argc);
-    // for(int i=0; i<argc; i++)
-    //     report(", argv[%d]=\"%s\"", i, argv[i]);
-
     if(argc == 0)
         return true;
 
     if(!strcasecmp(argv[0], "quit") || !strcasecmp(argv[0], "exit"))
         return false;
 
-    // maybe this command decoding should be table driven?
-
-    if(!strcasecmp(argv[0], "regs")){
-        super_regs(argc-1, argv+1);
-        return true;
-    }
-
-    if(!strcasecmp(argv[0], "clk")){
-        super_clk(argc-1, argv+1);
-        return true;
-    }
-
-    if(!strcasecmp(argv[0], "reset")){
-        super_reset(argc-1, argv+1);
-        return true;
+    for(cmd_entry_t *cmd=cmd_table; cmd->name; cmd++){
+        if(!strcasecmp(argv[0], cmd->name)){
+            if(cmd->function == NULL){
+                return false;
+            }else{
+                cmd->function(argc-1, argv+1);
+                return true;
+            }
+        }
     }
 
     report("error: unknown command \"%s\"\r\n", argv[0]);
@@ -84,6 +90,7 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
 
 void super_regs(int argc, char *argv[])
 {
+    // TODO -- need to pause clock while we do this
     z80_show_regs();
 }
 
@@ -91,33 +98,47 @@ void super_clk(int argc, char *argv[])
 {
     if(argc == 1 && !strcasecmp(argv[0], "stop")){
         z80_clk_switch_stop();
+        report("clock: stopped\r\n");
     }else if(argc == 1 && !strcasecmp(argv[0], "fast")){
         z80_clk_switch_fast();
-    }else if(argc == 1 && !strcasecmp(argv[0], "slow")){
-        z80_clk_switch_slow(1000000);
-    }else if(argc == 2 && !strcasecmp(argv[0], "slow")){
-        char *endptr = NULL;
-        float f = strtof(argv[1], &endptr);
-        if(f == 0)
-            report("error: bad frequency\r\n");
-        else{
-            switch(tolower(*endptr)){
-                case 0:
-                    break;
-                case 'k':
-                    f *= 1000;
-                    break;
-                case 'm':
-                    f *= 1000000;
-                    break;
-                case 'g': // possibly getting a bit ambitious here!
-                    f *= 1000000000;
-                    break;
-                default:
-                    report("Unrecognised unit suffix?");
+        report("clock: fast\r\n");
+    }else if(argc <= 2 && !strcasecmp(argv[0], "slow")){
+        float f;
+        if(argc == 1){
+            f = 1000000;
+        }else{ // argc == 2
+            char *endptr = NULL;
+            f = strtof(argv[1], &endptr);
+            if(f == 0){
+                report("error: bad frequency\r\n");
+                return;
+            }else{
+                switch(tolower(*endptr)){
+                    case 0:
+                        break;
+                    case 'k':
+                        f *= 1000;
+                        break;
+                    case 'm':
+                        f *= 1000000;
+                        break;
+                    case 'g': // possibly getting a bit ambitious here!
+                        f *= 1000000000;
+                        break;
+                    default:
+                        report("error: unrecognised unit suffix?");
+                        return;
+                }
             }
-            report("[f=%.3f]", f);
-            z80_clk_switch_slow(f);
+            f = z80_clk_switch_slow(f);
+            report("clock: slow ");
+            if(f >= 950000.0)
+                report("%.3fMHz", f / 1000000.0);
+            else if(f > 950.0)
+                report("%.3fkHz", f / 1000.0);
+            else
+                report("%.3fHz", f);
+            report("\r\n");
         }
     }else{
         report("error: syntax: clk [stop|fast|slow <freq [kHz|MHz]>]\r\n");

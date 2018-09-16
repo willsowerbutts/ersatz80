@@ -101,7 +101,7 @@ inline void z80_set_release_wait(bool release) { digitalWrite(WAIT_RESET, !relea
 void z80_clk_init(void);
 void z80_clk_switch_stop(void);
 void z80_clk_switch_fast(void);
-void z80_clk_switch_slow(float frequency);
+float z80_clk_switch_slow(float frequency);
 void z80_set_clk(bool level);
 
 

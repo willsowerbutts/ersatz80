@@ -27,14 +27,37 @@ void z80_clk_fast_stop(void)
     digitalWrite(CLK_STROBE, 0);
 }
 
-void z80_clk_slow_start(float frequency)
+float z80_clk_slow_start(float frequency)
 {
+    // TODO - ensure this starts the clock cleanly
+    if(frequency > (F_BUS/4)) // limit to speeds we can reliably generate
+        frequency = F_BUS/4;
     analogWriteFrequency(CLK_STROBE, frequency);
     analogWrite(CLK_STROBE, 128);
+    // note CLK_STROBE == CORE_FTM3_CH2_PIN
+    // compute the actual frequency configured:
+    float freq;
+    switch(FTM3_SC & FTM_SC_CLKS_MASK){ // clock source
+        case FTM_SC_CLKS(0):
+            freq = 0;
+            break;
+        case FTM_SC_CLKS(1):
+            freq = F_BUS;
+            break;
+        case FTM_SC_CLKS(2):
+            freq = 31250;
+            break;
+        default:
+            report("(unknown FTM CS?)");
+    }
+    freq = freq / (1 << (FTM3_SC & FTM_SC_PS_MASK)); // prescaler
+    freq = freq / (1 + FTM3_MOD);                    // modulo
+    return freq;
 }
 
 void z80_clk_slow_stop(void)
 {
+    // TODO - ensure this stops the clock cleanly
     pinMode(CLK_STROBE, OUTPUT);
     digitalWrite(CLK_STROBE, 0);
 }
@@ -69,7 +92,7 @@ void z80_clk_switch_fast(void)
     clk_mode = CLK_FAST;
 }
 
-void z80_clk_switch_slow(float frequency)
+float z80_clk_switch_slow(float frequency)
 {
     switch(clk_mode){
         case CLK_SLOW:
@@ -82,9 +105,9 @@ void z80_clk_switch_slow(float frequency)
         case CLK_STOP:
             break;
     }
-    z80_clk_slow_start(frequency);
     clk_mode = CLK_SLOW;
     clk_slow_freq = frequency;
+    return z80_clk_slow_start(frequency);
 }
 
 void z80_set_clk(bool level)
