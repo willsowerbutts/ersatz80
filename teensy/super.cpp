@@ -9,6 +9,7 @@
 
 #define SBUFLEN 80
 #define SMAXARG 10
+int supervisor_cmd_offset = 0;
 char supervisor_cmd_buffer[SBUFLEN];
 #define is_cmd(x) (!strcasecmp_P(buf, PSTR(x)))
 
@@ -17,18 +18,44 @@ void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
 void z80_show_regs(void);
 
-void supervisor_menu(void)
+bool supervisor_menu_key_in(unsigned char keypress)
 {
-    debug_boldon();
-
-    while(true){
-        report("Supervisor> ");
-        serial_read_line((unsigned char*)supervisor_cmd_buffer, SBUFLEN); // TODO - accumulate this asynchronously
+    if(keypress == 0x7f || keypress == 0x08){ // backspace and delete
+        if(supervisor_cmd_offset > 0){
+            Serial.write("\x08 \x08"); // erase last char
+            supervisor_cmd_offset--;
+        }
+    }else if(keypress == 0x0d || keypress == 0x0a){
+        supervisor_cmd_buffer[supervisor_cmd_offset] = 0;
         report("\r\n");
-        if(!execute_supervisor_command(supervisor_cmd_buffer))
-            break;
+        bool r = execute_supervisor_command(supervisor_cmd_buffer);
+        if(r)
+            supervisor_menu_enter();
+        return r;
+    }else if(keypress == SUPERVISOR_ESCAPE_KEYCODE){
+        report("*abort*\r\n");
+        return false;
+    }else if(keypress >= 0x20){
+        if(supervisor_cmd_offset < (SBUFLEN-1)){
+            supervisor_cmd_buffer[supervisor_cmd_offset++] = keypress;
+            debug_boldon();
+            Serial.write(keypress);
+            debug_boldoff();
+        }else{
+            Serial.write(0x07); // sound the bell
+        }
     }
-    debug_boldoff();
+    return true;
+}
+
+void supervisor_menu_enter(void)
+{
+    supervisor_cmd_offset = 0;
+    report("Supervisor> ");
+}
+
+void supervisor_menu_exit(void)
+{
 }
 
 typedef struct {

@@ -15,6 +15,7 @@ typedef unsigned char uint8_t;
 uint8_t uart_rx_fifo_waiting = 0;
 uint8_t uart_rx_fifo_start = 0;
 uint8_t uart_rx_fifo_buffer[UART_RX_FIFO_BUFFER_SIZE];
+bool supervisor_input_mode = false;
 
 bool uart_rx_fifo_push(uint8_t keyin)
 {
@@ -132,7 +133,7 @@ void synthesised_clock(void)
         if(Serial.available() > 0){
             keyin = Serial.read();
             if(keyin == SUPERVISOR_ESCAPE_KEYCODE){
-                supervisor_menu();
+                // supervisor_menu();
             }else{
                 if(!uart_rx_fifo_push(keyin))
                     report("UART: rxdata buffer overflow\r\n");
@@ -280,6 +281,52 @@ inline void z80_complete_write(void)
     // return with DMA capable -- caller must do z80_set_busrq(false);
 }
 
+void handle_z80_bus(void)
+{
+    if(z80_wait_asserted()){
+        if(z80_iorq_asserted()){
+            if(z80_rd_asserted()){
+                z80_complete_read(iodevice_read(z80_bus_address()));
+            }else if(z80_wr_asserted()){
+                z80_complete_write(); // leaves us in DMA mode
+                iodevice_write(z80_bus_address_low8(), z80_bus_data());
+                z80_set_busrq(false);
+            }else
+                report("(iorq weird?)");
+        } else if(z80_mreq_asserted()){
+            if(z80_rd_asserted()){
+                z80_complete_read(memory_read(z80_bus_address()));
+            }else if(z80_wr_asserted()){
+                z80_complete_write(); // leaves us in DMA mode
+                memory_write(z80_bus_address_low8(), z80_bus_data());
+                z80_set_busrq(false);
+            }else
+                report("(mreq weird?)");
+        } else
+            report("(wait weird?)");
+    }
+}
+
+void handle_serial_input(void)
+{
+    int key;
+    while((key = Serial.read()) >= 0){
+        if(supervisor_input_mode){
+            if(!supervisor_menu_key_in(key)){
+                supervisor_input_mode = false;
+                supervisor_menu_exit();
+            }
+        }else{
+            if(key == SUPERVISOR_ESCAPE_KEYCODE){
+                supervisor_input_mode = true;
+                supervisor_menu_enter();
+            }else if(!uart_rx_fifo_push(key)){
+                Serial.write(0x07); // sound bell on overflow
+            }
+        }
+    }
+}
+
 void loop() {
     // startup - copy monitor ROM into RAM etc
     dma_test();
@@ -289,36 +336,7 @@ void loop() {
     z80_clk_switch_fast();
 
     while(true){
-        if(z80_wait_asserted()){
-            if(z80_iorq_asserted()){
-                if(z80_rd_asserted()){
-                    z80_complete_read(iodevice_read(z80_bus_address()));
-                }else if(z80_wr_asserted()){
-                    z80_complete_write(); // leaves us in DMA mode
-                    iodevice_write(z80_bus_address_low8(), z80_bus_data());
-                    z80_set_busrq(false);
-                }else
-                    report("(iorq weird?)");
-            } else if(z80_mreq_asserted()){
-                if(z80_rd_asserted()){
-                    z80_complete_read(memory_read(z80_bus_address()));
-                }else if(z80_wr_asserted()){
-                    z80_complete_write(); // leaves us in DMA mode
-                    memory_write(z80_bus_address_low8(), z80_bus_data());
-                    z80_set_busrq(false);
-                }else
-                    report("(mreq weird?)");
-            } else
-                report("(wait weird?)");
-        }
-        if((uart_rx_fifo_waiting < UART_RX_FIFO_BUFFER_SIZE) && (Serial.available() > 0)){
-            int keyin = Serial.read();
-            if(keyin == SUPERVISOR_ESCAPE_KEYCODE){
-                supervisor_menu();
-            }else{
-                if(!uart_rx_fifo_push(keyin))
-                    report("UART: rxdata buffer overflow\n");
-            }
-        }
+        handle_z80_bus();
+        handle_serial_input();
     }
 }
