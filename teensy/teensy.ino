@@ -294,7 +294,8 @@ void handle_z80_bus(void)
 void handle_serial_input(void)
 {
     int key;
-    while((key = Serial.read()) >= 0){
+
+    if((key = Serial.read()) >= 0){
         if(supervisor_input_mode){
             if(!supervisor_menu_key_in(key)){
                 supervisor_input_mode = false;
@@ -306,6 +307,7 @@ void handle_serial_input(void)
                 supervisor_menu_enter();
             }else if(!uart_rx_fifo_push(key)){
                 Serial.write(0x07); // sound bell on overflow
+                return; // ... and come back to this task later
             }
         }
     }

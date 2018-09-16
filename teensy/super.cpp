@@ -13,10 +13,28 @@ int supervisor_cmd_offset = 0;
 char supervisor_cmd_buffer[SBUFLEN];
 #define is_cmd(x) (!strcasecmp_P(buf, PSTR(x)))
 
+typedef struct {
+    const char *name;
+    void (*function)(int argc, char *argv[]);
+} cmd_entry_t;
+
+void z80_show_regs(void);
 void super_reset(int argc, char *argv[]);
 void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
-void z80_show_regs(void);
+void super_loadrom(int argc, char *argv[]);
+
+const cmd_entry_t cmd_table[] = {
+    { "quit",       NULL            },
+    { "exit",       NULL            },
+    { "q",          NULL            },
+    { "regs",       &super_regs     },
+    { "clk",        &super_clk      },
+    { "reset",      &super_reset    },
+    { "loadrom",    &super_loadrom  },
+    // list terminator:
+    { NULL,         NULL            }
+};
 
 bool supervisor_menu_key_in(unsigned char keypress)
 {
@@ -55,22 +73,6 @@ void supervisor_menu_enter(void)
 void supervisor_menu_exit(void)
 {
 }
-
-typedef struct {
-    const char *name;
-    void (*function)(int argc, char *argv[]);
-} cmd_entry_t;
-
-const cmd_entry_t cmd_table[] = {
-    { "quit",       NULL },
-    { "exit",       NULL },
-    { "q",          NULL },
-    { "regs",       &super_regs },
-    { "clk",        &super_clk },
-    { "reset",      &super_reset },
-    // list terminator:
-    { NULL,         NULL }
-};
 
 bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit etc, true otherwise
 {
@@ -176,6 +178,19 @@ void super_clk(int argc, char *argv[])
                        break;
     }
     report("\r\n");
+}
+
+void super_loadrom(int argc, char *argv[])
+{
+    if(argc == 0){
+        report("error: syntax: loadrom [basic|monitor]\r\n");
+    }else if(argc == 1 && !strcasecmp(argv[0], "monitor")){
+        load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
+        report("loadrom: monitor loaded at %04x\r\n", MONITOR_ROM_START);
+    }else if(argc == 1 && !strcasecmp(argv[0], "basic")){
+        load_program_to_sram(basic_rom, 0, 16*1024, 0);
+        report("loadrom: basic loaded. entry at 0150.\r\n");
+    }
 }
 
 void super_reset(int argc, char *argv[])

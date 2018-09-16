@@ -69,6 +69,7 @@ void z80_set_mmu(int bank, uint8_t page);
 
 void z80_show_pin_states(void);
 void z80_bus_report_state(void);
+void handle_z80_bus(void);
 
 extern uint16_t user_led;
 extern bool z80_reset;
