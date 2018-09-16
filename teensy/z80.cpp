@@ -14,30 +14,29 @@ uint8_t ram_pages = 0;
 
 void shift_register_update(void)
 {
-    int output = (user_led & 0xFFF) |       // the LEDs are all active high
-                 (z80_reset ? 0 : 0x8000) | // these signals are all active low
-                 (z80_nmi   ? 0 : 0x4000) |
-                 (z80_irq   ? 0 : 0x2000) |
-                 (ram_ce    ? 0 : 0x1000);
-
+    unsigned int bit = 0x8000;
+    unsigned int output = 
+        (user_led << 4) |
+        (ram_ce    ? 0 : 8) |
+        (z80_irq   ? 0 : 4) |
+        (z80_nmi   ? 0 : 2) |
+        (z80_reset ? 0 : 1);
 #ifdef KINETISK
-    // this can be made slightly faster by using the GPIO?_PSOR/PCOR 
-    // registers ... but then it's too fast for the 74AHCT595s!
-    for(int i=0; i<16; i++){
-        *portOutputRegister(SHIFT_REGISTER_DATA) = output;
+    do{
+        *portOutputRegister(SHIFT_REGISTER_DATA) = (output & bit) ? 1 : 0;
         *portOutputRegister(SHIFT_REGISTER_CLK) = 1;
-        output >>= 1;
+        bit >>= 1;
         *portOutputRegister(SHIFT_REGISTER_CLK) = 0;
-    }
+    }while(bit);
     *portOutputRegister(SHIFT_REGISTER_LATCH) = 1;
     *portOutputRegister(SHIFT_REGISTER_LATCH) = 0;
 #else
-    for(int i=0; i<16; i++){
-        digitalWrite(SHIFT_REGISTER_DATA, output & 1);
+    do{
+        digitalWrite(SHIFT_REGISTER_DATA, (output & bit) ? 1 : 0);
         digitalWrite(SHIFT_REGISTER_CLK, 1);
-        output >>= 1;
+        bit >>= 1;
         digitalWrite(SHIFT_REGISTER_CLK, 0);
-    }
+    }while(bit);
     digitalWrite(SHIFT_REGISTER_LATCH, 1);
     digitalWrite(SHIFT_REGISTER_LATCH, 0);
 #endif
