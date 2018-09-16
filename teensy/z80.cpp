@@ -640,12 +640,12 @@ void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
 
 void begin_dma(void)
 {
-    // this is incomplete. only really useful when Z80 is held in reset.
     z80_set_busrq(true);
     while(!z80_busack_asserted()){  // wait for BUSACK
-        // TODO -- check /WAIT etc in here
         if(!z80_clk_running())
             z80_clock_pulse();
+        handle_z80_bus(); 
+        z80_set_busrq(true); // handle_z80_bus may perform a DMA cycle so we need to assert again
     }
     z80_bus_master();
 }
