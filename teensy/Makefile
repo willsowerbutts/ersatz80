@@ -1,4 +1,5 @@
 BOARD_TAG    = teensy35
+F_CPU        = 120000000
 ARDUINO_DIR  = $(HOME)/arduino-1.8.5
 ARDUINO_LIBS =
 
