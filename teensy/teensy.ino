@@ -315,7 +315,7 @@ void setup() {
     z80_setup();
     Serial.begin(9600);
     while(!Serial.dtr()); // wait for a terminal to connect to the USB serial device
-    report("ersatz80: init\r\n");
+    report("ersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", F_CPU/1000000.0, F_BUS/1000000.0);
     z80_do_reset();
     mmu_setup();
     sram_setup();

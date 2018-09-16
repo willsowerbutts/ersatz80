@@ -28,11 +28,9 @@ bool supervisor_menu_key_in(unsigned char keypress)
     }else if(keypress == 0x0d || keypress == 0x0a){
         supervisor_cmd_buffer[supervisor_cmd_offset] = 0;
         report("\r\n");
-        bool r = execute_supervisor_command(supervisor_cmd_buffer);
-        if(r)
-            supervisor_menu_enter();
-        return r;
-    }else if(keypress == SUPERVISOR_ESCAPE_KEYCODE){
+        execute_supervisor_command(supervisor_cmd_buffer);
+        return false;
+    }else if(keypress == 0x1B /* Esc */ || keypress == SUPERVISOR_ESCAPE_KEYCODE){
         report("*abort*\r\n");
         return false;
     }else if(keypress >= 0x20){
@@ -123,12 +121,12 @@ void super_regs(int argc, char *argv[])
 
 void super_clk(int argc, char *argv[])
 {
-    if(argc == 1 && !strcasecmp(argv[0], "stop")){
+    if(argc == 0){
+        // ... do nothing (we just want the report that follows)
+    }else if(argc == 1 && (!strcasecmp(argv[0], "stop") || !strcasecmp(argv[0], "stopped"))){
         z80_clk_switch_stop();
-        report("clock: stopped\r\n");
     }else if(argc == 1 && !strcasecmp(argv[0], "fast")){
         z80_clk_switch_fast();
-        report("clock: fast\r\n");
     }else if(argc <= 2 && !strcasecmp(argv[0], "slow")){
         float f;
         if(argc == 1){
@@ -157,19 +155,27 @@ void super_clk(int argc, char *argv[])
                         return;
                 }
             }
-            f = z80_clk_switch_slow(f);
-            report("clock: slow ");
-            if(f >= 950000.0)
-                report("%.3fMHz", f / 1000000.0);
-            else if(f > 950.0)
-                report("%.3fkHz", f / 1000.0);
-            else
-                report("%.3fHz", f);
-            report("\r\n");
         }
+        f = z80_clk_switch_slow(f);
     }else{
         report("error: syntax: clk [stop|fast|slow <freq [kHz|MHz]>]\r\n");
+        return;
     }
+
+    report("clock: ");
+    switch(clk_mode){
+        case CLK_FAST: report("fast"); break;
+        case CLK_STOP: report("stopped"); break;
+        case CLK_SLOW: report("slow ");
+                       if(clk_slow_freq >= 950000.0)
+                           report("%.3fMHz", clk_slow_freq / 1000000.0);
+                       else if(clk_slow_freq > 950.0)
+                           report("%.3fkHz", clk_slow_freq / 1000.0);
+                       else
+                           report("%.3fHz", clk_slow_freq);
+                       break;
+    }
+    report("\r\n");
 }
 
 void super_reset(int argc, char *argv[])

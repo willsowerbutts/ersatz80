@@ -2,7 +2,6 @@
 #include "debug.h"
 #include "z80.h"
 
-typedef enum { CLK_FAST, CLK_SLOW, CLK_STOP } clk_mode_t;
 clk_mode_t clk_mode;
 float clk_slow_requested; // requested frequency for slow clock
 float clk_slow_freq;      // actual frequency of slow clock

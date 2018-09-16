@@ -7,7 +7,7 @@
 #ifdef DEBUG
 void debug_dumpmem(void *_ptr, uint16_t len)
 {
-    uint8_t *ptr = _ptr;
+    uint8_t *ptr = (uint8_t*)_ptr;
     report("Memory at 0x%x len 0x%x: [", ptr, len);
     for(int i=0; i<len; i++){
         if(i>0)
