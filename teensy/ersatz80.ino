@@ -4,13 +4,10 @@
 #include "z80.h"
 #include "serial.h"
 #include "debug.h"
+#include "super.h"
 #include "rom.h"
 
-#define SUPERVISOR_ESCAPE_KEYCODE 7 // Ctrl-G
-
 typedef unsigned char uint8_t;
-
-void z80_show_regs(void);
 
 #define ROM_ADDR_MASK (0x3FFF) // 16KB
 
@@ -41,62 +38,6 @@ uint8_t uart_rx_fifo_pop(void)
     uart_rx_fifo_waiting--;
     uart_rx_fifo_start = (uart_rx_fifo_start+1) % UART_RX_FIFO_BUFFER_SIZE;
     return r;
-}
-
-#define SBUFLEN 40
-#define is_cmd(x) (!strcasecmp_P(buf, PSTR(x)))
-void supervisor_menu(void)
-{
-    char buf[SBUFLEN];
-    debug_boldon();
-    while(true){
-        report("Supervisor> ");
-        serial_read_line((unsigned char*)buf, SBUFLEN);
-        report("\r\n");
-        if(is_cmd("trace bus")){
-            z80_bus_trace = true;
-        }else if(is_cmd("no trace bus")){
-            z80_bus_trace = false;
-        }else if(is_cmd("regs")){
-            z80_show_regs();
-        }else if(is_cmd("clk stop")){
-            z80_clk_switch_stop();
-        }else if(is_cmd("clk fast")){
-            z80_clk_switch_fast();
-        }else if(is_cmd("clk slow")){
-            z80_clk_switch_slow(40000); // TODO - parse arguments and take frequency from typed command
-        }else if(is_cmd("reset")){
-            z80_set_reset(true);
-            delay(10);
-            z80_set_release_wait(true);
-            z80_set_release_wait(false);
-            z80_set_reset(false);
-        }else if(is_cmd("quit") || is_cmd("exit")){
-            break;
-        }else{
-            report("???\r\n");
-        }
-        // else if(is_cmd("trace mem"))
-        //     z80_mem_trace = ... it'd be nice to choose read/write/both ... ?
-        // else if(is_cmd("trace io"))
-        //     z80_io_trace = ... it'd be nice to choose read/write/both ... ?
-        // would be nice to have a trace like:
-        // 0421: 1f        inc hl
-        // 0422: 83 02 30  ld de,(3002)
-        //       3002: 9302
-        // 0425: ...
-        // trace all bus states
-        // trace memory reads
-        // trace memory writes
-        // display memory
-        // edit memory
-        // upload code
-        // set breakpoints (code, data)
-        // reset cpu
-        // jump cpu to address
-        // report cpu registers
-    }
-    debug_boldoff();
 }
 
 uint8_t iodevice_read(uint16_t address)
@@ -340,7 +281,7 @@ inline void z80_complete_write(void)
 }
 
 void loop() {
-    // put program in RAM
+    // startup - copy monitor ROM into RAM etc
     dma_test();
     z80_do_reset();
     ram_ce = true;
