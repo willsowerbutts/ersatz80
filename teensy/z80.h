@@ -52,7 +52,7 @@ void z80_bus_slave(void);
 void z80_setup(void);
 void mmu_setup(void);
 void sram_setup(void);
-void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address, bool jump_from_reset);
+void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address);
 void z80_do_reset(void);
 void z80_set_reset(bool active);
 void z80_clock_pulse_drive_data(uint8_t data);

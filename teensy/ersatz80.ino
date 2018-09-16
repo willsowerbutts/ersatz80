@@ -320,7 +320,7 @@ void setup() {
     mmu_setup();
     sram_setup();
     report("ersatz80: load ROM\r\n");
-    load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START, true);
+    load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
     report("ersatz80: reset Z80\r\n");
     z80_do_reset();
     report("Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);

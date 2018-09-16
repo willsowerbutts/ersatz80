@@ -719,7 +719,7 @@ void sram_setup(void)
     end_dma();
 }
 
-void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address, bool jump_from_reset)
+void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address)
 {
     begin_dma();
 
@@ -730,7 +730,7 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
     ram_ce = true;
     shift_register_update();
 
-    if(jump_from_reset){
+    if(start_address != 0x0000){
         z80_memory_write(0, 0xc3); // JP instruction
         z80_memory_write(1, start_address & 0xFF);
         z80_memory_write(2, start_address >> 8);
