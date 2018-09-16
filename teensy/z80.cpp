@@ -684,9 +684,9 @@ void sram_setup(void)
     shift_register_update();
 
     // wipe RAM
-    report("Wipe RAM: page __");
+    report("Wipe RAM: page ___");
     for(i=0; i<256; i++){
-        report("\x08\x08%02d", i);
+        report("\x08\x08\x08%03d", i);
         z80_set_mmu(0, i);
         // is it really there?
         z80_memory_write(0, 0xaa);
@@ -710,7 +710,7 @@ void sram_setup(void)
         z80_wipe_page();
     }
     ram_pages = i;
-    report("\x08\x08\x08\x08\x08\x08\x08%d pages (%dKB)\r\n", ram_pages, 16*ram_pages);
+    report("\x08\x08\x08\x08\x08\x08\x08\x08%d pages (%dKB)\r\n", ram_pages, 16*ram_pages);
 
     // return machine to previous state
     ram_ce = old_ram_ce;
