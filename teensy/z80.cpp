@@ -2,6 +2,7 @@
 #include "rom.h"
 #include "debug.h"
 #include "z80.h"
+#include "sdcard.h"
 
 uint16_t user_led = 0x000; // value to show on user-controlled LEDs
 bool z80_reset = true;       // Z80 /RESET pin (z80_reset=true means /RESET is driven low ie asserted)
@@ -737,6 +738,43 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
     
     for(int i=0; i<length; i++)
         z80_memory_write(address++, program[i]);
+
+    // restore machine state
+    ram_ce = old_ram_ce;
+    shift_register_update();
+    end_dma();
+}
+
+void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
+{
+    begin_dma();
+
+    // stash current state
+    bool old_ram_ce = ram_ce;
+
+    // enable the SRAM
+    ram_ce = true;
+    shift_register_update();
+
+    if(start_address != 0x0000){
+        z80_memory_write(0, 0xc3); // JP instruction
+        z80_memory_write(1, start_address & 0xFF);
+        z80_memory_write(2, start_address >> 8);
+    }
+
+    // Open file
+    File testFile = SD.open(filename);
+
+    // Load file to RAM 
+    if (testFile) {
+      while (testFile.available()) {
+        z80_memory_write(address++, testFile.read());
+      }
+      testFile.close();
+    }
+    else {
+      report("error opening file!\r\n");
+    }
 
     // restore machine state
     ram_ce = old_ram_ce;
