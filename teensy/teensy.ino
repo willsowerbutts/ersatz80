@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "super.h"
 #include "rom.h"
+#include "sdcard.h"
 
 #define UART_RX_FIFO_BUFFER_SIZE 128
 uint8_t uart_rx_fifo_waiting = 0;
@@ -317,6 +318,7 @@ void setup() {
     z80_setup();
     Serial.begin(9600);
     while(!Serial.dtr()); // wait for a terminal to connect to the USB serial device
+    sdcard_init();
     report("ersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", F_CPU/1000000.0, F_BUS/1000000.0);
     z80_do_reset();
     mmu_setup();
