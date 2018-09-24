@@ -23,6 +23,7 @@ void super_reset(int argc, char *argv[]);
 void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
 void super_loadrom(int argc, char *argv[]);
+void super_loadfile(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "quit",       NULL            },
@@ -32,6 +33,7 @@ const cmd_entry_t cmd_table[] = {
     { "clk",        &super_clk      },
     { "reset",      &super_reset    },
     { "loadrom",    &super_loadrom  },
+    { "loadfile",   &super_loadfile },
     // list terminator:
     { NULL,         NULL            }
 };
@@ -201,4 +203,18 @@ void super_reset(int argc, char *argv[])
     z80_set_release_wait(true);
     z80_set_release_wait(false);
     z80_set_reset(false);
+}
+
+
+void super_loadfile(int argc, char *argv[])
+{
+    if(argc < 3){
+        report("error: syntax: loadfile [filename] [address] [start address]\r\n");
+        report("note: [filename] must be 8.3 format\r\n");
+        report("note: address and start address in hex\r\n");
+    }else {
+      long int address = strtol(argv[1], NULL, 16);
+      long int start_address = strtol(argv[2], NULL, 16);
+      load_file_to_sram(argv[0], address, start_address);
+    }
 }
