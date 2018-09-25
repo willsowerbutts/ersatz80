@@ -98,49 +98,6 @@ void memory_write(uint16_t address, uint8_t value)
     // nop
 }
 
-void z80_tick_tock()
-{
-    if(z80_mreq_asserted()){
-        if(z80_rd_asserted()){
-            z80_clock_pulse_drive_data(memory_read(z80_bus_address()));
-        }else if(z80_wr_asserted()){
-            memory_write(z80_bus_address(), z80_bus_data());
-            z80_clock_pulse_while_writing();
-        }else
-            z80_clock_pulse();
-    }else if(z80_iorq_asserted()){
-        z80_set_release_wait(true);
-        if(z80_rd_asserted()){
-            z80_clock_pulse_drive_data(iodevice_read(z80_bus_address()));
-        }else if(z80_wr_asserted()){
-            iodevice_write(z80_bus_address(), z80_bus_data());
-            z80_clock_pulse_while_writing();
-        }else
-            z80_clock_pulse();
-        z80_set_release_wait(false);
-    }else{
-        z80_clock_pulse();
-    }
-}
-
-void synthesised_clock(void)
-{
-    int keyin;
-
-    while(true){
-        if(Serial.available() > 0){
-            keyin = Serial.read();
-            if(keyin == SUPERVISOR_ESCAPE_KEYCODE){
-                // supervisor_menu();
-            }else{
-                if(!uart_rx_fifo_push(keyin))
-                    report("UART: rxdata buffer overflow\r\n");
-            }
-        }
-        z80_tick_tock();
-    }
-}
-
 void z80_send_instruction(uint8_t opcode)
 {
     while(!(z80_mreq_asserted() && z80_rd_asserted()))
@@ -169,7 +126,7 @@ void z80_show_regs(void)
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
     uint8_t i;
 
-    z80_clk_switch_stop();                       // stop the fast clock
+    z80_clk_pause();
 
     // this code does not deal with the situation where CPU is HALTed.
     // solution might be: wake CPU with an int/nmi, capture PC when it writes it to the
@@ -177,12 +134,18 @@ void z80_show_regs(void)
     //                    feed it a HALT when it fetches PC-1. it will HALT with PC correct.
 
     // if we're partway through an M1 cycle, allow it to complete first
-    while(z80_m1_asserted())
-        z80_tick_tock();
+    while(z80_m1_asserted()){
+        if(!z80_clk_running())
+            z80_clock_pulse();
+        handle_z80_bus(); 
+    }
 
     // wait for a new M1 cycle to start
-    while(!z80_m1_asserted())
-        z80_tick_tock();
+    while(!z80_m1_asserted()){
+        if(!z80_clk_running())
+            z80_clock_pulse();
+        handle_z80_bus(); 
+    }
 
     // disable the RAM so we can control the data bus
     ram_ce = false;
@@ -236,7 +199,7 @@ void z80_show_regs(void)
 
     ram_ce = true;                               // turn back on the RAM
     shift_register_update();
-    z80_clk_switch_fast();                       // resume warp speed
+    z80_clk_resume();
 
     report("PC=%04x SP=%04x\r\nAF=%04x AF'=%04x\r\n" \
            "BC=%04x BC'=%04x\r\nDE=%04x DE'=%04x\r\n" \
@@ -251,7 +214,9 @@ inline void z80_complete_read(uint8_t data)
     z80_setup_drive_data(data);
     z80_set_busrq(true);
     z80_set_release_wait(true);
-    while(!z80_busack_asserted());
+    while(!z80_busack_asserted())
+        if(!z80_clk_running())
+            z80_clock_pulse();
     z80_shutdown_drive_data();
     z80_set_release_wait(false);
     z80_set_busrq(false);
@@ -262,7 +227,9 @@ inline void z80_complete_write(void)
 {
     z80_set_busrq(true);
     z80_set_release_wait(true);
-    while(!z80_busack_asserted());
+    while(!z80_busack_asserted())
+        if(!z80_clk_running())
+            z80_clock_pulse();
     z80_set_release_wait(false);
     // return with DMA capable -- caller must do z80_set_busrq(false);
 }
@@ -328,9 +295,12 @@ void __assert_func(const char *__file, int __lineno, const char *__func, const c
 
 void setup() {
     z80_setup();
-    Serial.begin(9600);
+    Serial.begin(115200); // baud rate specified here is irrelevant
     while(!Serial.dtr()); // wait for a terminal to connect to the USB serial device
-    report("ersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", F_CPU/1000000.0, F_BUS/1000000.0);
+    report("                     _       ___   ___  \r\n  ___ _ __ ___  __ _| |_ ___( _ ) / _ \\ \r\n"
+           " / _ \\ '__/ __|/ _` | __|_  / _ \\| | | |\r\n|  __/ |  \\__ \\ (_| | |_ / / (_) | |_| |\r\n"
+           " \\___|_|  |___/\\__,_|\\__/___\\___/ \\___/ \r\nersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", 
+           F_CPU/1000000.0, F_BUS/1000000.0);
     sdcard_init();
     z80_do_reset();
     mmu_setup();
@@ -348,8 +318,7 @@ void setup() {
 
 void loop() {
     while(true){
-        if(z80_clk_running())
-            handle_z80_bus();
+        handle_z80_bus();
         handle_serial_input();
     }
 }
