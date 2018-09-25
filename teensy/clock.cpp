@@ -81,8 +81,6 @@ float z80_clk_slow_start(float frequency)
     FTM3_MOD = mod;         // this dictates the frequency
     FTM3_C2V = 1 + (mod >> 1);    // 50% duty cycle please
 
-    report("clk slow: clks=%d, mod=%d, v=%d, prescale=%d\r\n", clks, mod, mod >> 1, prescale);
-
     // reconfigure the output pin to connect it to the FTM
     CORE_PIN7_CONFIG = PORT_PCR_MUX(4) | PORT_PCR_DSE | PORT_PCR_SRE;
 

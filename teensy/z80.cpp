@@ -684,7 +684,7 @@ void sram_setup(void)
     shift_register_update();
 
     // wipe RAM
-    report("Wipe RAM: page ___");
+    report("ersatz80: wipe RAM: page ___");
     for(i=0; i<256; i++){
         report("\x08\x08\x08%03d", i);
         z80_set_mmu(0, i);
