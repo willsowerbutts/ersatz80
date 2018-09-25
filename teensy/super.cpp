@@ -31,6 +31,7 @@ const cmd_entry_t cmd_table[] = {
     { "q",          NULL            },
     { "regs",       &super_regs     },
     { "clk",        &super_clk      },
+    { "clock",      &super_clk      },
     { "reset",      &super_reset    },
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include "z80.h"
 #include "serial.h"
 #include "debug.h"
@@ -312,6 +313,17 @@ void handle_serial_input(void)
             }
         }
     }
+}
+
+void __assert_func(const char *__file, int __lineno, const char *__func, const char *__sexp) {
+    // put the Z80 bus in a safe mode where we're not driving any signals
+    z80_bus_slave();
+
+    // transmit diagnostic informations through serial link. 
+    report("assert() failed in %s:%d function %s: %s\r\n", __file, __lineno, __func, __sexp);
+    Serial.flush();
+    // end program execution.
+    while(1);
 }
 
 void setup() {
