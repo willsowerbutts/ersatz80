@@ -104,6 +104,8 @@ inline void z80_set_release_wait(bool release) { digitalWrite(WAIT_RESET, !relea
 #endif
 
 // clock.cpp:
+void z80_clk_pause(void);
+void z80_clk_resume(void);
 void z80_clk_init(void);
 void z80_clk_switch_stop(void);
 void z80_clk_switch_fast(void);

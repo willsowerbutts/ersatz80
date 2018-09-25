@@ -3,7 +3,7 @@
 #include "debug.h"
 #include "z80.h"
 
-clk_mode_t clk_mode;
+clk_mode_t clk_mode, paused_clk_mode;
 float clk_slow_requested; // requested frequency for slow clock
 float clk_slow_freq;      // actual frequency of slow clock
 
@@ -127,6 +127,26 @@ void z80_clk_slow_stop(void)
     // switch the mux from FTM back to GPIO
     CORE_PIN7_CONFIG = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     clk_mode = CLK_STOP;
+}
+
+void z80_clk_pause(void)
+{
+    paused_clk_mode = clk_mode;
+    z80_clk_switch_stop();
+}
+
+void z80_clk_resume(void)
+{
+    switch(paused_clk_mode){
+        case CLK_STOP:
+            break;
+        case CLK_SLOW:
+            z80_clk_slow_start(clk_slow_requested);
+            break;
+        case CLK_FAST:
+            z80_clk_fast_start();
+            break;
+    }
 }
 
 void z80_clk_switch_stop(void)
