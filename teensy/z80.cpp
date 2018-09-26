@@ -747,6 +747,7 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
 
 void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
 {
+#if 0 // TODO update to use SdFat
     begin_dma();
 
     // stash current state
@@ -780,4 +781,5 @@ void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
     ram_ce = old_ram_ce;
     shift_register_update();
     end_dma();
+#endif 
 }

@@ -1,15 +1,32 @@
 #include <Arduino.h>
-#include <SD.h>
-#include <SD_t3.h>
-
 #include "debug.h"
 #include "sdcard.h"
 
+SdFatSdioEX sd; // can also try using SdFatSdioEX here?
+
 void sdcard_init() {
-  report("ersatz80: initializing SD card...\r\n");
-  
-  if (!SD.begin(254)) {
-        report("ersatz80: SD card initialization failed!\r\n");
-  }
+    SdioCard *card;
+    report("ersatz80: initializing SD card: ");
+
+    if (!sd.begin()) {
+        report("failed!\r\n");
+        return;
+    }
+
+    card = sd.card();
+    switch(card->type()){
+        case 0:
+            report("SDv1");
+            break;
+        case 1:
+            report("SDv2");
+            break;
+        case 3:
+            report("SDHC");
+            break;
+        default:
+            report("(unknown card type)");
+    }
+    report(" %d blocks (%.1fGB) FAT%d\r\n", card->cardSize(), (float)card->cardSize() / 2097152.0, sd.fatType());
 }
 

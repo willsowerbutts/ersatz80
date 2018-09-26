@@ -2,7 +2,7 @@ BOARD_TAG    = teensy35
 F_CPU        = 120000000
 ARDUINO_DIR  = $(HOME)/arduino-1.8.5
 ARDUINO_LIB_PATH = $(ARDUINO_DIR)/hardware/teensy/avr/libraries
-ARDUINO_LIBS = SPI SD
+ARDUINO_LIBS = SPI SdFat
 
 # https://github.com/sudar/Arduino-Makefile -- on Debian/Ubuntu install the "arduino-mk" package
 include /usr/share/arduino/Teensy.mk

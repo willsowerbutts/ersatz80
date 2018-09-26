@@ -39,52 +39,200 @@ uint8_t uart_rx_fifo_pop(void)
     return r;
 }
 
+uint8_t uart_read_status(uint16_t address)
+{
+    return (uart_rx_fifo_waiting ? 0x80 : 0x00) | (Serial.availableForWrite()>0 ? 0x00 : 0x40);
+}
+
+uint8_t uart_read_data(uint16_t address)
+{
+    return uart_rx_fifo_pop();
+}
+
+void uart_write_data(uint16_t address, uint8_t value)
+{
+    Serial.write(value);
+}
+
+void user_leds_write(uint16_t address, uint8_t value)
+{
+    if(address & 1)
+        user_led = (user_led & 0xFF00) | value;
+    else
+        user_led = (user_led & 0xFF) | ((value & 0x0F) << 8);
+    shift_register_update();
+}
+
+uint8_t user_leds_read(uint16_t address)
+{
+    if(address & 1)
+        return user_led & 0xFF;
+    else
+        return (user_led >> 8) & 0x0F;
+}
+
+uint8_t mmu_read(uint16_t address)
+{
+    return mmu[address & 3];
+}
+
+void mmu_write(uint16_t address, uint8_t value)
+{
+    z80_bus_master();
+    z80_set_mmu(address & 3, value);
+    z80_bus_slave();
+}
+
+typedef struct {
+    uint8_t (*read_function)(uint16_t address);
+    void (*write_function)(uint16_t address, uint8_t value);
+} ioregister_functions_t;
+
+const ioregister_functions_t io_register_handler[256] = {
+    { uart_read_status,     NULL },                 // 0x00 - UART status
+    { uart_read_data,       uart_write_data },      // 0x01 - UART data
+    { NULL,                 NULL },                 // 0x02
+    { NULL,                 NULL },                 // 0x03
+    { NULL,                 NULL },                 // 0x04
+    { NULL,                 NULL },                 // 0x05
+    { NULL,                 NULL },                 // 0x06
+    { NULL,                 NULL },                 // 0x07
+    { NULL,                 NULL },                 // 0x08
+    { NULL,                 NULL },                 // 0x09
+    { NULL,                 NULL },                 // 0x0a
+    { NULL,                 NULL },                 // 0x0b
+    { NULL,                 NULL },                 // 0x0c
+    { NULL,                 NULL },                 // 0x0d
+    { NULL,                 NULL },                 // 0x0e
+    { NULL,                 NULL },                 // 0x0f
+    { NULL,                 NULL },                 // 0x10
+    { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (low 8 bits)
+    { user_leds_read,       user_leds_write },      // 0x12 - user LEDs (top 4 bits)
+    { NULL,                 NULL },                 // 0x13
+    { NULL,                 NULL },                 // 0x14
+    { NULL,                 NULL },                 // 0x15
+    { NULL,                 NULL },                 // 0x16
+    { NULL,                 NULL },                 // 0x17
+    { NULL,                 NULL },                 // 0x18
+    { NULL,                 NULL },                 // 0x19
+    { NULL,                 NULL },                 // 0x1a
+    { NULL,                 NULL },                 // 0x1b
+    { NULL,                 NULL },                 // 0x1c
+    { NULL,                 NULL },                 // 0x1d
+    { NULL,                 NULL },                 // 0x1e
+    { NULL,                 NULL },                 // 0x1f
+    { NULL,                 NULL },                 // 0x20
+    { NULL,                 NULL },                 // 0x21
+    { NULL,                 NULL },                 // 0x22
+    { NULL,                 NULL },                 // 0x23
+    { NULL,                 NULL },                 // 0x24
+    { NULL,                 NULL },                 // 0x25
+    { NULL,                 NULL },                 // 0x26
+    { NULL,                 NULL },                 // 0x27
+    { NULL,                 NULL },                 // 0x28
+    { NULL,                 NULL },                 // 0x29
+    { NULL,                 NULL },                 // 0x2a
+    { NULL,                 NULL },                 // 0x2b
+    { NULL,                 NULL },                 // 0x2c
+    { NULL,                 NULL },                 // 0x2d
+    { NULL,                 NULL },                 // 0x2e
+    { NULL,                 NULL },                 // 0x2f
+    { NULL,                 NULL },                 // 0x30
+    { NULL,                 NULL },                 // 0x31
+    { NULL,                 NULL },                 // 0x32
+    { NULL,                 NULL },                 // 0x33
+    { NULL,                 NULL },                 // 0x34
+    { NULL,                 NULL },                 // 0x35
+    { NULL,                 NULL },                 // 0x36
+    { NULL,                 NULL },                 // 0x37
+    { NULL,                 NULL },                 // 0x38
+    { NULL,                 NULL },                 // 0x39
+    { NULL,                 NULL },                 // 0x3a
+    { NULL,                 NULL },                 // 0x3b
+    { NULL,                 NULL },                 // 0x3c
+    { NULL,                 NULL },                 // 0x3d
+    { NULL,                 NULL },                 // 0x3e
+    { NULL,                 NULL },                 // 0x3f
+    { NULL,                 NULL },                 // 0x40
+    { NULL,                 NULL },                 // 0x41
+    { NULL,                 NULL },                 // 0x42
+    { NULL,                 NULL },                 // 0x43
+    { NULL,                 NULL },                 // 0x44
+    { NULL,                 NULL },                 // 0x45
+    { NULL,                 NULL },                 // 0x46
+    { NULL,                 NULL },                 // 0x47
+    { NULL,                 NULL },                 // 0x48
+    { NULL,                 NULL },                 // 0x49
+    { NULL,                 NULL },                 // 0x4a
+    { NULL,                 NULL },                 // 0x4b
+    { NULL,                 NULL },                 // 0x4c
+    { NULL,                 NULL },                 // 0x4d
+    { NULL,                 NULL },                 // 0x4e
+    { NULL,                 NULL },                 // 0x4f
+    { NULL,                 NULL },                 // 0x50
+    { NULL,                 NULL },                 // 0x51
+    { NULL,                 NULL },                 // 0x52
+    { NULL,                 NULL },                 // 0x53
+    { NULL,                 NULL },                 // 0x54
+    { NULL,                 NULL },                 // 0x55
+    { NULL,                 NULL },                 // 0x56
+    { NULL,                 NULL },                 // 0x57
+    { NULL,                 NULL },                 // 0x58
+    { NULL,                 NULL },                 // 0x59
+    { NULL,                 NULL },                 // 0x5a
+    { NULL,                 NULL },                 // 0x5b
+    { NULL,                 NULL },                 // 0x5c
+    { NULL,                 NULL },                 // 0x5d
+    { NULL,                 NULL },                 // 0x5e
+    { NULL,                 NULL },                 // 0x5f
+    { NULL,                 NULL },                 // 0x60
+    { NULL,                 NULL },                 // 0x61
+    { NULL,                 NULL },                 // 0x62
+    { NULL,                 NULL },                 // 0x63
+    { NULL,                 NULL },                 // 0x64
+    { NULL,                 NULL },                 // 0x65
+    { NULL,                 NULL },                 // 0x66
+    { NULL,                 NULL },                 // 0x67
+    { NULL,                 NULL },                 // 0x68
+    { NULL,                 NULL },                 // 0x69
+    { NULL,                 NULL },                 // 0x6a
+    { NULL,                 NULL },                 // 0x6b
+    { NULL,                 NULL },                 // 0x6c
+    { NULL,                 NULL },                 // 0x6d
+    { NULL,                 NULL },                 // 0x6e
+    { NULL,                 NULL },                 // 0x6f
+    { NULL,                 NULL },                 // 0x70
+    { NULL,                 NULL },                 // 0x71
+    { NULL,                 NULL },                 // 0x72
+    { NULL,                 NULL },                 // 0x73
+    { NULL,                 NULL },                 // 0x74
+    { NULL,                 NULL },                 // 0x75
+    { NULL,                 NULL },                 // 0x76
+    { NULL,                 NULL },                 // 0x77
+    { mmu_read,             mmu_write },            // 0x78 - MMU bank select (Zeta2 compatible)
+    { mmu_read,             mmu_write },            // 0x79 - MMU bank select (Zeta2 compatible)
+    { mmu_read,             mmu_write },            // 0x7a - MMU bank select (Zeta2 compatible)
+    { mmu_read,             mmu_write },            // 0x7b - MMU bank select (Zeta2 compatible)
+    { NULL,                 NULL },                 // 0x7c
+    { NULL,                 NULL },                 // 0x7d
+    { NULL,                 NULL },                 // 0x7e
+    { NULL,                 NULL },                 // 0x7f
+};
+
 uint8_t iodevice_read(uint16_t address)
 {
-    //report("IO Read %04x\n", address);
-    switch(address & 0xFF){
-        case 0x00: // UART status
-            return (uart_rx_fifo_waiting ? 0x80 : 0x00) | (Serial.availableForWrite()>0 ? 0x00 : 0x40);
-        case 0x01: // UART data
-            return uart_rx_fifo_pop();
-        case 0x78: // bank0 page select -- Zeta2 compatible
-        case 0x79: // bank1 page select -- Zeta2 compatible
-        case 0x7A: // bank2 page select -- Zeta2 compatible
-        case 0x7B: // bank3 page select -- Zeta2 compatible
-            return mmu[(address & 0xFF) - 0x78];
-        default:
-            report("[IOR %04x]", address);
-            return 0xAA;
-    }
+    if(io_register_handler[address & 0xFF].read_function)
+        return io_register_handler[address & 0xFF].read_function(address);
+    report("[IOR %04x]", address);
+    return 0xAA;
 }
 
 void iodevice_write(uint16_t address, uint8_t value) // call ONLY when in DMA mode!
 {
-    //report("IO Write %04x %02x\n", address, value);
-    switch(address & 0xFF){
-        case 0x01: // UART data
-            Serial.write(value);
-            break;
-        case 0x11: // LEDs
-            user_led = (user_led & 0xFF00) | value;
-            shift_register_update();
-            break;
-        case 0x12: // LEDs
-            user_led = (user_led & 0xFF) | ((value & 0x0F) << 8);
-            shift_register_update();
-            break;
-        case 0x78: // bank0 page select -- Zeta2 compatible
-        case 0x79: // bank1 page select -- Zeta2 compatible
-        case 0x7A: // bank2 page select -- Zeta2 compatible
-        case 0x7B: // bank3 page select -- Zeta2 compatible
-            // we might be called in different contexts -- we might already be bus master? or Z80 still running?
-            z80_bus_master();
-            z80_set_mmu((address & 0xFF) - 0x78, value);
-            z80_bus_slave();
-            break;
-        default:
-            report("[IOW %04x %02x]", address, value);
-            break;
+    if(io_register_handler[address & 0xFF].write_function)
+        io_register_handler[address & 0xFF].write_function(address, value);
+    else{
+        report("[IOW %04x %02x]", address, value);
     }
 }
 
