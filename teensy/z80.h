@@ -116,4 +116,10 @@ typedef enum { CLK_FAST, CLK_SLOW, CLK_STOP } clk_mode_t;
 extern clk_mode_t clk_mode;
 extern float clk_slow_freq;
 
+// teensy.ino:
+uint8_t iodevice_read(uint16_t address);
+void iodevice_write(uint16_t address, uint8_t value); // call ONLY when in DMA mode!
+uint8_t memory_read(uint16_t address);
+void memory_write(uint16_t address, uint8_t value);
+
 #endif

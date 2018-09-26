@@ -2,7 +2,7 @@
 #include "debug.h"
 #include "sdcard.h"
 
-SdFatSdioEX sd; // can also try using SdFatSdioEX here?
+SdFatSdioEX sd; // can also try using SdFatSdio here -- it may be slower?
 
 void sdcard_init() {
     SdioCard *card;

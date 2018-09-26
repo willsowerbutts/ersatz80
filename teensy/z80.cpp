@@ -627,6 +627,168 @@ uint8_t z80_memory_read(uint16_t address)
     return byte;
 }
 
+void z80_send_instruction(uint8_t opcode)
+{
+    while(!(z80_mreq_asserted() && z80_rd_asserted()))
+        z80_clock_pulse();
+    z80_clock_pulse_drive_data(opcode);
+}
+
+uint16_t z80_send_instruction_read_stack(uint8_t opcode)
+{
+    uint16_t r;
+
+    z80_send_instruction(opcode);
+    // now it will write to the stack
+    while(!(z80_mreq_asserted() && z80_wr_asserted()))
+        z80_clock_pulse();
+    r = z80_bus_data();
+    z80_clock_pulse_while_writing();
+    while(!(z80_mreq_asserted() && z80_wr_asserted()))
+        z80_clock_pulse();
+    r = (r << 8) | z80_bus_data();
+    return r;
+}
+
+void z80_show_regs(void)
+{
+    uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
+    uint8_t i;
+
+    z80_clk_pause();
+
+    // this code does not deal with the situation where CPU is HALTed.
+    // solution might be: wake CPU with an int/nmi, capture PC when it writes it to the
+    //                    stack. capture regs as usual. then IRET and JP to PC-1, then 
+    //                    feed it a HALT when it fetches PC-1. it will HALT with PC correct.
+
+    // if we're partway through an M1 cycle, allow it to complete first
+    while(z80_m1_asserted()){
+        if(!z80_clk_running())
+            z80_clock_pulse();
+        handle_z80_bus(); 
+    }
+
+    // wait for a new M1 cycle to start
+    while(!z80_m1_asserted()){
+        if(!z80_clk_running())
+            z80_clock_pulse();
+        handle_z80_bus(); 
+    }
+
+    // disable the RAM so we can control the data bus
+    ram_ce = false;
+    shift_register_update();
+
+    // now we feed it a synthesised instruction - F5 (PUSH AF)
+    while(!(z80_mreq_asserted() && z80_rd_asserted()))
+        z80_clock_pulse();
+    pc = z80_bus_address();                      // (this gives us the PC register)
+    z80_clock_pulse_drive_data(0xF5);            // PUSH AF
+
+    // now it will write to the stack
+    while(!(z80_mreq_asserted() && z80_wr_asserted()))
+        z80_clock_pulse();
+    sp = z80_bus_address() + 1;                  // (this gives us the SP register)
+    af = z80_bus_data();
+    z80_clock_pulse_while_writing();
+    while(!(z80_mreq_asserted() && z80_wr_asserted()))
+        z80_clock_pulse();
+    af = (af << 8) | z80_bus_data();
+
+    bc = z80_send_instruction_read_stack(0xC5);  // PUSH BC
+    de = z80_send_instruction_read_stack(0xD5);  // PUSH DE
+    hl = z80_send_instruction_read_stack(0xE5);  // PUSH HL
+    z80_send_instruction(0x08);                  // EX AF, AF'
+    af_ = z80_send_instruction_read_stack(0xF5); // PUSH AF
+    z80_send_instruction(0x08);                  // EX AF, AF' again (swap back)
+    z80_send_instruction(0xD9);                  // EXX
+    bc_ = z80_send_instruction_read_stack(0xC5); // PUSH BC
+    de_ = z80_send_instruction_read_stack(0xD5); // PUSH DE
+    hl_ = z80_send_instruction_read_stack(0xE5); // PUSH HL
+    z80_send_instruction(0xD9);                  // EXX again (swap back)
+    z80_send_instruction(0xDD);                  // IX prefix
+    ix  = z80_send_instruction_read_stack(0xE5); // PUSH IX
+    z80_send_instruction(0xFD);                  // IY prefix
+    iy  = z80_send_instruction_read_stack(0xE5); // PUSH IY
+    z80_send_instruction(0xED);                  // ED prefix
+    z80_send_instruction(0x57);                  // LD A,I - note this affects the flags register
+    i = z80_send_instruction_read_stack(0xF5) >> 8; // PUSH AF - I is now in A (high bits)
+
+    // finally we need to put AF, SP and PC back as they were before our tinkering
+    z80_send_instruction(0xF1);                  // POP af
+    z80_send_instruction(af & 0xFF);             //  ...
+    z80_send_instruction(af >> 8);               //  ...
+    z80_send_instruction(0x31);                  // LD SP, xxxx
+    z80_send_instruction(sp & 0xFF);             //  ...
+    z80_send_instruction(sp >> 8);               //  ...
+    z80_send_instruction(0xC3);                  // JP xxxx
+    z80_send_instruction(pc & 0xFF);             //  ...
+    z80_send_instruction(pc >> 8);               //  ...
+
+    ram_ce = true;                               // turn back on the RAM
+    shift_register_update();
+    z80_clk_resume();
+
+    report("PC=%04x SP=%04x\r\nAF=%04x AF'=%04x\r\n" \
+           "BC=%04x BC'=%04x\r\nDE=%04x DE'=%04x\r\n" \
+           "HL=%04x HL'=%04x\r\nIX=%04x IY=%04x I=%02x\r\n",
+           pc, sp, af, af_,
+           bc, bc_, de, de_,
+           hl, hl_, ix, iy, i);
+}
+
+inline void z80_complete_read(uint8_t data)
+{
+    z80_setup_drive_data(data);
+    z80_set_busrq(true);
+    z80_set_release_wait(true);
+    while(!z80_busack_asserted())
+        if(!z80_clk_running())
+            z80_clock_pulse();
+    z80_shutdown_drive_data();
+    z80_set_release_wait(false);
+    z80_set_busrq(false);
+    // return with Z80 running
+}
+
+inline void z80_complete_write(void)
+{
+    z80_set_busrq(true);
+    z80_set_release_wait(true);
+    while(!z80_busack_asserted())
+        if(!z80_clk_running())
+            z80_clock_pulse();
+    z80_set_release_wait(false);
+    // return with DMA capable -- caller must do z80_set_busrq(false);
+}
+
+void handle_z80_bus(void)
+{
+    if(z80_wait_asserted()){
+        if(z80_iorq_asserted()){
+            if(z80_rd_asserted()){
+                z80_complete_read(iodevice_read(z80_bus_address()));
+            }else if(z80_wr_asserted()){
+                z80_complete_write(); // leaves us in DMA mode
+                iodevice_write(z80_bus_address_low8(), z80_bus_data());
+                z80_set_busrq(false);
+            }else
+                report("(iorq weird?)");
+        } else if(z80_mreq_asserted()){
+            if(z80_rd_asserted()){
+                z80_complete_read(memory_read(z80_bus_address()));
+            }else if(z80_wr_asserted()){
+                z80_complete_write(); // leaves us in DMA mode
+                memory_write(z80_bus_address_low8(), z80_bus_data());
+                z80_set_busrq(false);
+            }else
+                report("(mreq weird?)");
+        } else
+            report("(wait weird?)");
+    }
+}
+
 void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
 {
     if(bank < 0 || bank > 3){
