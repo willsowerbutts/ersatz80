@@ -52,6 +52,17 @@ uint8_t iodevice_read(uint16_t address)
         case 0x7A: // bank2 page select -- Zeta2 compatible
         case 0x7B: // bank3 page select -- Zeta2 compatible
             return mmu[(address & 0xFF) - 0x78];
+        case sdcard_base_port:
+        case sdcard_base_port+0x01:
+        case sdcard_base_port+0x02:
+        case sdcard_base_port+0x03:
+        case sdcard_base_port+0x04:
+        case sdcard_base_port+0x05:
+        case sdcard_base_port+0x06:
+        case sdcard_base_port+0x07:
+            return sdcard_reg_rd((address & 0xFF));
+        case sdcard_base_port+0x0f:
+            return sdcard_status_byte;
         default:
             report("[IOR %04x]", address);
             return 0xAA;
@@ -81,6 +92,19 @@ void iodevice_write(uint16_t address, uint8_t value) // call ONLY when in DMA mo
             z80_bus_master();
             z80_set_mmu((address & 0xFF) - 0x78, value);
             z80_bus_slave();
+            break;
+        case sdcard_base_port:
+        case sdcard_base_port+0x01:
+        case sdcard_base_port+0x02:
+        case sdcard_base_port+0x03:
+        case sdcard_base_port+0x04:
+        case sdcard_base_port+0x05:
+        case sdcard_base_port+0x06:
+        case sdcard_base_port+0x07:
+            sdcard_reg_wr((address & 0xFF), value);
+            break;
+        case sdcard_base_port+0x0F:
+            sdcard_cmd_wr(value);
             break;
         default:
             report("[IOW %04x %02x]", address, value);

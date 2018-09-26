@@ -773,7 +773,9 @@ void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
       testFile.close();
     }
     else {
-      report("error opening file!\r\n");
+      report("error opening file ");
+      report(filename);
+      report("\r\n");
     }
 
     // restore machine state
