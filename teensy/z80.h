@@ -66,7 +66,12 @@ uint8_t z80_bus_data(void);
 void z80_set_release_wait(bool release);
 void z80_setup_drive_data(uint8_t data);
 void z80_shutdown_drive_data(void);
+void z80_memory_write(uint16_t address, uint8_t data);
+uint8_t z80_memory_read(uint16_t address);
 void z80_set_mmu(int bank, uint8_t page);
+void begin_dma(void);
+void end_dma(void);
+
 
 void z80_show_pin_states(void);
 void z80_bus_report_state(void);
