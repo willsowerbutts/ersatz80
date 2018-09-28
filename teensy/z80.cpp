@@ -748,8 +748,7 @@ inline void z80_complete_read(uint8_t data)
             z80_clock_pulse();
     z80_shutdown_drive_data();
     z80_set_release_wait(false);
-    z80_set_busrq(false);
-    // return with Z80 running
+    // return with DMA capable -- caller must do z80_set_busrq(false);
 }
 
 inline void z80_complete_write(void)
@@ -769,8 +768,9 @@ void handle_z80_bus(void)
         if(z80_iorq_asserted()){
             if(z80_rd_asserted()){
                 z80_complete_read(iodevice_read(z80_bus_address()));
+                z80_set_busrq(false);
             }else if(z80_wr_asserted()){
-                z80_complete_write(); // leaves us in DMA mode
+                z80_complete_write();
                 iodevice_write(z80_bus_address_low8(), z80_bus_data());
                 z80_set_busrq(false);
             }else
@@ -778,8 +778,9 @@ void handle_z80_bus(void)
         } else if(z80_mreq_asserted()){
             if(z80_rd_asserted()){
                 z80_complete_read(memory_read(z80_bus_address()));
+                z80_set_busrq(false);
             }else if(z80_wr_asserted()){
-                z80_complete_write(); // leaves us in DMA mode
+                z80_complete_write();
                 memory_write(z80_bus_address_low8(), z80_bus_data());
                 z80_set_busrq(false);
             }else
