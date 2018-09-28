@@ -24,6 +24,8 @@ void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
 void super_loadrom(int argc, char *argv[]);
 void super_loadfile(int argc, char *argv[]);
+void super_stepmode(int argc, char *argv[]);
+void stepmode(void);
 
 const cmd_entry_t cmd_table[] = {
     { "quit",       NULL            },
@@ -35,6 +37,7 @@ const cmd_entry_t cmd_table[] = {
     { "reset",      &super_reset    },
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },
+    { "stepmode",   &super_stepmode },
     // list terminator:
     { NULL,         NULL            }
 };
@@ -218,4 +221,9 @@ void super_loadfile(int argc, char *argv[])
       long int start_address = strtol(argv[2], NULL, 16);
       load_file_to_sram(argv[0], address, start_address);
     }
+}
+
+void super_stepmode(int argc, char *argv[])
+{
+    stepmode();
 }
