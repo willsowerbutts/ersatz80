@@ -996,7 +996,7 @@ void z80_bus_report_state(void)
         instruction_clock_cycles++;
         if(bus_mid_cycle && !(z80_mreq_asserted() || z80_iorq_asserted()))
             bus_mid_cycle = false;
-        else if(!bus_mid_cycle){
+        else if(!bus_mid_cycle && !z80_wait_asserted()){
             if(z80_mreq_asserted()){
                 if(z80_rd_asserted()){
                     type = MEM_READ;
