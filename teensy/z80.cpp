@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "z80.h"
 #include "sdcard.h"
+#include "disasm.h"
 
 uint16_t user_led = 0x000; // value to show on user-controlled LEDs
 bool z80_reset = true;       // Z80 /RESET pin (z80_reset=true means /RESET is driven low ie asserted)
@@ -949,17 +950,26 @@ typedef struct bus_state_t {
 #define MAX_BUS_STATES 8 // presumably this can be lower??
 bus_state_t bus_state_trace[MAX_BUS_STATES];
 bool bus_mid_cycle = false;
-int bus_state_index = 0;
+int bus_state_count = 0;
+int bus_state_di = 0;
+
+uint8_t read_bus_state_bytes(void)
+{
+    return bus_state_trace[bus_state_di++].data;
+}
 
 void z80_instruction_ended(void)
 {
-    report("instruction ended: %d states: ", bus_state_index);
-    for(int i=0; i<bus_state_index; i++){
+    char output[30];
+    bus_state_di = 0;
+    z80ctrl_disasm(read_bus_state_bytes, output);
+    report("%04x: %-15s", bus_state_trace[0].address, output);
+    for(int i=0; i<bus_state_count; i++){
         switch(bus_state_trace[i].cycle){
-            case MEM_READ:  report("MR:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
-            case MEM_WRITE: report("MW:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
-            case IO_READ:   report("IR:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
-            case IO_WRITE:  report("IW:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+            case MEM_READ:  report("%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+            case MEM_WRITE: report("%04x<%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+            case IO_READ:   report("io%02x=%02x ", bus_state_trace[i].address & 0xFF, bus_state_trace[i].data); break;
+            case IO_WRITE:  report("io%02x<%02x ", bus_state_trace[i].address & 0xFF, bus_state_trace[i].data); break;
         }
     }
     report("\r\n");
@@ -968,13 +978,6 @@ void z80_instruction_ended(void)
 void z80_bus_report_state(void)
 {
     bus_cycle_t type = NO_CYCLE;
-
-    if(z80_bus_trace >= 2)
-        report("\r\n|%04x|%02x|%s|%s|%s|",
-                z80_bus_address(), z80_bus_data(), 
-                z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
-                z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
-                z80_m1_asserted() ? "M1" : "  ");
 
     if(z80_bus_trace >= 1){
         if(bus_mid_cycle && !(z80_mreq_asserted() || z80_iorq_asserted()))
@@ -994,17 +997,24 @@ void z80_bus_report_state(void)
                 }
             }
             if(type != NO_CYCLE){
-                if(z80_m1_asserted() && !(bus_state_index == 1 && (bus_state_trace[0].data == 0xcb || bus_state_trace[0].data == 0xdd || bus_state_trace[0].data == 0xed || bus_state_trace[0].data == 0xfd))){
+                if(z80_m1_asserted() && !(bus_state_count == 1 && (bus_state_trace[0].data == 0xcb || bus_state_trace[0].data == 0xdd || bus_state_trace[0].data == 0xed || bus_state_trace[0].data == 0xfd))){
                     z80_instruction_ended();
-                    bus_state_index = 0;
+                    bus_state_count = 0;
                 }
                 bus_mid_cycle = true;
-                bus_state_trace[bus_state_index].cycle = type;
-                bus_state_trace[bus_state_index].data = z80_bus_data();
-                bus_state_trace[bus_state_index].address = z80_bus_address();
-                if(bus_state_index < (MAX_BUS_STATES-1))
-                    bus_state_index++;
+                bus_state_trace[bus_state_count].cycle = type;
+                bus_state_trace[bus_state_count].data = z80_bus_data();
+                bus_state_trace[bus_state_count].address = z80_bus_address();
+                if(bus_state_count < (MAX_BUS_STATES-1))
+                    bus_state_count++;
             }
         }
     }
+
+    if(z80_bus_trace >= 2)
+        report("\r\n|%04x|%02x|%s|%s|%s|",
+                z80_bus_address(), z80_bus_data(), 
+                z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
+                z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
+                z80_m1_asserted() ? "M1" : "  ");
 }
