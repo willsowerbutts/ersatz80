@@ -2,22 +2,22 @@
  * z80ctrl (https://github.com/jblang/z80ctrl)
  * Copyright 2018 J.B. Langston
  *
- * Permission is hereby granted, free of charge, to any person obtaining a 
- * copy of this software and associated documentation files (the "Software", 
- * to deal in the Software without restriction, including without limitation 
- * the rights to use, copy, modify, merge, publish, distribute, sublicense, 
- * and/or sell copies of the Software, and to permit persons to whom the 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software",
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
@@ -27,8 +27,8 @@
 
 /**
  * @file disasm.c Z80 disassembler
- * 
- * This disassembler decodes Z80 instructions using techniques described 
+ *
+ * This disassembler decodes Z80 instructions using techniques described
  * in http://www.z80.info/decoding.htm.
  */
 
@@ -68,9 +68,9 @@ const char *int_modes[] = {"0", "0", "1", "2"};
  * block instructions
  */
 const char *block_ops[] = {
-    "LDI", "LDD", "LDIR", "LDDR", 
-    "CPI", "CPD", "CPIR", "CPDR", 
-    "INI", "IND", "INIR", "INDR", 
+    "LDI", "LDD", "LDIR", "LDDR",
+    "CPI", "CPD", "CPIR", "CPDR",
+    "INI", "IND", "INIR", "INDR",
     "OUTI", "OUTD", "OTIR", "OTDR"
 };
 
@@ -123,7 +123,7 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
         if (im != HL)
                 displ = input();
         opcode = input();
-    } 
+    }
 
     // bit slice the opcode: xxyyyzzz / xxppqzzz
     uint8_t x = (opcode & 0300) >> 6;       // x = opcode[7:6]
@@ -159,14 +159,14 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
             if (im == HL) {
                 sprintf(output, "%s %s", rot_ops[y], rz);
             } else {
-                sprintf(output, "%s (%s+%02XH)", rot_ops[y], hli, displ);
+                sprintf(output, "%s (%s+%02x)", rot_ops[y], hli, displ);
             }
         } else {
             // Bit operations (test reset, set)
             if (im == HL) {
                 sprintf(output, "%s %X,%s", bit_ops[x-1], y, rz);
             } else {
-                sprintf(output, "%s %X,(%s+%02XH)", bit_ops[x-1], y, hli, displ);
+                sprintf(output, "%s %X,(%s+%02x)", bit_ops[x-1], y, hli, displ);
             }
         }
     } else if (prefix == 0xED) {
@@ -184,9 +184,9 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                 // Retrieve/store register pair from/to immediate address
                 operand = input() | (input() << 8);
                 if (q == 0) {
-                    sprintf(output, "LD (%04XH),%s", operand, rp);
+                    sprintf(output, "LD (%04x),%s", operand, rp);
                 } else {
-                    sprintf(output, "LD %s,(%04XH)", rp, operand);
+                    sprintf(output, "LD %s,(%04x)", rp, operand);
                 }
             } else if (z == 4) {
                 // Negate accumulator
@@ -229,7 +229,7 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                 // 16-bit load immediate/add
                 if (q == 0) {
                     operand = input() | (input() << 8);
-                    sprintf(output, "LD %s,%04XH", rp, operand);
+                    sprintf(output, "LD %s,%04x", rp, operand);
                 } else {
                     sprintf(output, "ADD %s,%s", hli, rp);
                 }
@@ -243,9 +243,9 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                         hli = "A";
                     }
                     if (q == 0) {
-                        sprintf(output, "LD (0%04XH),%s", operand, hli); 
+                        sprintf(output, "LD (0%04x),%s", operand, hli);
                     } else {
-                        sprintf(output, "LD %s,(0%04XH)", hli, operand);
+                        sprintf(output, "LD %s,(0%04x)", hli, operand);
                     }
                 }
             } else if (z == 3) {
@@ -255,7 +255,7 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                 // 8-bit increment
                 if (y == HLI && im != HL) {
                     displ = input();
-                    sprintf(output, "INC (%s+%02XH)", hli, displ);
+                    sprintf(output, "INC (%s+%02x)", hli, displ);
                 } else {
                     sprintf(output, "INC %s", ry);
                 }
@@ -263,7 +263,7 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                 // 8-bit decrement
                 if (y == HLI && im != HL) {
                     displ = input();
-                    sprintf(output, "DEC (%s+%02XH)", hli, displ);
+                    sprintf(output, "DEC (%s+%02x)", hli, displ);
                 } else {
                     sprintf(output, "DEC %s", ry);
                 }
@@ -272,10 +272,10 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                 if (y == HLI && im != HL) {
                     displ = input();
                     operand = input();
-                    sprintf(output, "LD (%s+%02XH),%02XH", hli, displ, operand);
+                    sprintf(output, "LD (%s+%02x),%02x", hli, displ, operand);
                 } else {
                     operand = input();
-                    sprintf(output, "LD %s,%02XH", ry, operand);
+                    sprintf(output, "LD %s,%02x", ry, operand);
                 }
             } else if (z == 7) {
                 // Assorted operations on accumulator/flags
@@ -289,9 +289,9 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
                 // 8-bit loading
                 displ = input();
                 if (y == HLI) {
-                    sprintf(output, "LD (%s+%02XH),%s", hli, displ, rz);
+                    sprintf(output, "LD (%s+%02x),%s", hli, displ, rz);
                 } else {
-                    sprintf(output, "LD %s,(%s+%02XH)", ry, hli, displ);
+                    sprintf(output, "LD %s,(%s+%02x)", ry, hli, displ);
                 }
             } else {
                 sprintf(output, "LD %s,%s", ry, rz);
@@ -300,7 +300,7 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
             // ALU operation on accumulator and register/memory location
             if (z == 6 && im != HL) {
                 displ = input();
-                sprintf(output, "%s(%s+%02XH)", alu_ops[y], hli, displ);
+                sprintf(output, "%s(%s+%02x)", alu_ops[y], hli, displ);
             } else {
                 sprintf(output, "%s%s", alu_ops[y], rz);
             }
@@ -324,20 +324,20 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
             } else if (z == 2) {
                 // Conditional jump
                 operand = input() | (input() << 8);
-                sprintf(output, "JP %s,%04XH", conditions[y], operand);
+                sprintf(output, "JP %s,%04x", conditions[y], operand);
             } else if (z == 3) {
                 // Assorted operations
                 if (y == 0) {
-                    operand = input() | (input() << 8);                                    
-                    sprintf(output, "JP %04XH", operand);
+                    operand = input() | (input() << 8);
+                    sprintf(output, "JP %04x", operand);
                 } else if (y == 1) {
                     strcpy(output, "?"); // CB prefix
                 } else if (y == 2) {
                     operand = input();
-                    sprintf(output, "OUT (%02XH),A", operand);
+                    sprintf(output, "OUT (%02x),A", operand);
                 } else if (y == 3) {
                     operand = input();
-                    sprintf(output, "IN A,(%02XH)", operand);
+                    sprintf(output, "IN A,(%02x)", operand);
                 } else if (y == 4) {
                     sprintf(output, "EX (_SP),%s", hli);
                 } else if (y == 5) {
@@ -350,22 +350,22 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
             } else if (z == 4) {
                 // Conditional call
                 operand = input() | (input() << 8);
-                sprintf(output, "CALL %s,%04XH", conditions[y], operand);
+                sprintf(output, "CALL %s,%04x", conditions[y], operand);
             } else if (z == 5) {
                 // PUSH & various ops
                 if (q == 0)
                     sprintf(output, "PUSH %s", p < _SP ? rp : register_pairs[AF]);
                 else if (p == 0) {
                     operand = input() | (input() << 8);
-                    sprintf(output, "CALL %04XH", operand);
-                } 
+                    sprintf(output, "CALL %04x", operand);
+                }
             } else if (z == 6) {
                 // ALU operation on accumulator and immediate operand
                 operand = input();
-                sprintf(output, "%s%02XH", alu_ops[y], operand);
+                sprintf(output, "%s%02x", alu_ops[y], operand);
             } else if (z == 7) {
                 // Restart
-                sprintf(output, "RST %02XH", y*8);
+                sprintf(output, "RST %02x", y*8);
             }
         }
     }
