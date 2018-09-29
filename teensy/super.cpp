@@ -228,7 +228,6 @@ void super_trace(int argc, char *argv[])
         report("error: trace [0|1|2]\r\n");
     }else{
         z80_bus_trace = strtol(argv[0], NULL, 10);
-        report("z80_bus_trace=%d\r\n", z80_bus_trace);
         if(z80_bus_trace > 0)
             z80_clk_switch_stop();
     }

@@ -108,6 +108,12 @@ float z80_clk_slow_start(float frequency)
     return freq;
 }
 
+void z80_clk_slow_wait_overflow(void)
+{
+    FTM3_SC = FTM3_SC & (~FTM_SC_TOF);  // clear the TOF flag by reading SC and then writing 0 to the TOF bit
+    while(!(FTM3_SC & FTM_SC_TOF));     // wait for timer to overflow (TOF flag is set)
+}
+
 void z80_clk_slow_stop(void)
 {
     assert(clk_mode == CLK_SLOW);
@@ -115,11 +121,8 @@ void z80_clk_slow_stop(void)
     // set 0% duty in V reg
     FTM3_C2V = 0;
 
-    // clear the TOF flag by reading SC and then writing 0 to the TOF bit
-    FTM3_SC = FTM3_SC & (~FTM_SC_TOF);
-
-    // wait for timer to overflow (TOF flag is set) so we know the V reg has been updated
-    while(!(FTM3_SC & FTM_SC_TOF));
+    // wait for timer to overflow so we know the V reg has been updated
+    z80_clk_slow_wait_overflow();
 
     // pre-set the GPIO to the desired output level
     *portOutputRegister(CLK_STROBE) = 0;

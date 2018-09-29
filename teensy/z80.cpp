@@ -950,6 +950,7 @@ typedef struct bus_state_t {
 #define MAX_BUS_STATES 8 // presumably this can be lower??
 bus_state_t bus_state_trace[MAX_BUS_STATES];
 bool bus_mid_cycle = false;
+int instruction_clock_cycles = 0;
 int bus_state_count = 0;
 int bus_state_di = 0;
 
@@ -960,19 +961,31 @@ uint8_t read_bus_state_bytes(void)
 
 void z80_instruction_ended(void)
 {
-    char output[30];
+    char output[20];
+    uint16_t addr;
+    bus_cycle_t cycle;
+
     bus_state_di = 0;
     z80ctrl_disasm(read_bus_state_bytes, output);
-    report("%04x: %-15s", bus_state_trace[0].address, output);
+    report("%04x: %-13s %2d  ", bus_state_trace[0].address, output, instruction_clock_cycles);
+
+    addr = ~bus_state_trace[0].address; // force us to print the addr
     for(int i=0; i<bus_state_count; i++){
-        switch(bus_state_trace[i].cycle){
-            case MEM_READ:  report("%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
-            case MEM_WRITE: report("%04x<%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
-            case IO_READ:   report("io%02x=%02x ", bus_state_trace[i].address & 0xFF, bus_state_trace[i].data); break;
-            case IO_WRITE:  report("io%02x<%02x ", bus_state_trace[i].address & 0xFF, bus_state_trace[i].data); break;
+        if(bus_state_trace[i].address != addr || cycle != bus_state_trace[i].cycle){
+            addr = bus_state_trace[i].address;
+            cycle = bus_state_trace[i].cycle;
+            switch(bus_state_trace[i].cycle){
+                case MEM_READ:  report("%04x: ", bus_state_trace[i].address); break;
+                case MEM_WRITE: report("%04x<-", bus_state_trace[i].address); break;
+                case IO_READ:   report("io%02x: ", bus_state_trace[i].address & 0xFF); break;
+                case IO_WRITE:  report("io%02x<-", bus_state_trace[i].address & 0xFF); break;
+            }
         }
+        report("%02x%s", bus_state_trace[i].data, i == (bus_state_count-1) ? "" : (i == (bus_state_di-1) ? " / " : " "));
+        addr++;
     }
     report("\r\n");
+    instruction_clock_cycles = 0;
 }
 
 void z80_bus_report_state(void)
@@ -980,6 +993,7 @@ void z80_bus_report_state(void)
     bus_cycle_t type = NO_CYCLE;
 
     if(z80_bus_trace >= 1){
+        instruction_clock_cycles++;
         if(bus_mid_cycle && !(z80_mreq_asserted() || z80_iorq_asserted()))
             bus_mid_cycle = false;
         else if(!bus_mid_cycle){
@@ -1017,4 +1031,7 @@ void z80_bus_report_state(void)
                 z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
                 z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
                 z80_m1_asserted() ? "M1" : "  ");
+
+    // slow down the clock to a usable speed!
+    z80_clk_slow_wait_overflow();
 }

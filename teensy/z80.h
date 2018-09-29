@@ -112,6 +112,7 @@ void z80_clk_switch_fast(void);
 float z80_clk_switch_slow(float frequency);
 void z80_set_clk(bool level);
 bool z80_clk_running(void);
+void z80_clk_slow_wait_overflow(void);
 typedef enum { CLK_FAST, CLK_SLOW, CLK_STOP } clk_mode_t;
 extern clk_mode_t clk_mode;
 extern float clk_slow_freq;
