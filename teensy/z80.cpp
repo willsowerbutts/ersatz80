@@ -9,7 +9,7 @@ bool z80_reset = true;       // Z80 /RESET pin (z80_reset=true means /RESET is d
 bool z80_irq = false;        // Z80 /IRQ pin
 bool z80_nmi = false;        // Z80 /NMI pin
 bool ram_ce = false;         // RAM /CE pin
-bool z80_bus_trace = false;
+int z80_bus_trace = 0;
 uint8_t mmu[4];
 uint8_t ram_pages = 0;
 
@@ -245,15 +245,6 @@ void z80_setup(void)
 
     z80_set_clk(true);
     z80_set_reset(true);
-}
-
-void z80_bus_report_state(void)
-{
-    report("\r\n|%04x|%02x|%s|%s|%s|",
-            z80_bus_address(), z80_bus_data(), 
-            z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
-            z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
-            z80_m1_asserted() ? "M1" : "  ");
 }
 
 uint16_t z80_bus_address(void)
@@ -945,4 +936,75 @@ void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
     shift_register_update();
     end_dma();
 #endif 
+}
+
+enum bus_cycle_t { MEM_READ, MEM_WRITE, IO_READ, IO_WRITE, NO_CYCLE };
+
+typedef struct bus_state_t {
+    bus_cycle_t cycle;
+    uint16_t address;
+    uint8_t data;
+};
+
+#define MAX_BUS_STATES 8 // presumably this can be lower??
+bus_state_t bus_state_trace[MAX_BUS_STATES];
+bool bus_mid_cycle = false;
+int bus_state_index = 0;
+
+void z80_instruction_ended(void)
+{
+    report("instruction ended: %d states: ", bus_state_index);
+    for(int i=0; i<bus_state_index; i++){
+        switch(bus_state_trace[i].cycle){
+            case MEM_READ:  report("MR:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+            case MEM_WRITE: report("MW:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+            case IO_READ:   report("IR:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+            case IO_WRITE:  report("IW:%04x=%02x ", bus_state_trace[i].address, bus_state_trace[i].data); break;
+        }
+    }
+    report("\r\n");
+}
+
+void z80_bus_report_state(void)
+{
+    bus_cycle_t type = NO_CYCLE;
+
+    if(z80_bus_trace >= 2)
+        report("\r\n|%04x|%02x|%s|%s|%s|",
+                z80_bus_address(), z80_bus_data(), 
+                z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
+                z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
+                z80_m1_asserted() ? "M1" : "  ");
+
+    if(z80_bus_trace >= 1){
+        if(bus_mid_cycle && !(z80_mreq_asserted() || z80_iorq_asserted()))
+            bus_mid_cycle = false;
+        else if(!bus_mid_cycle){
+            if(z80_mreq_asserted()){
+                if(z80_rd_asserted()){
+                    type = MEM_READ;
+                }else if(z80_wr_asserted()){
+                    type = MEM_WRITE;
+                }
+            }else if(z80_iorq_asserted()){
+                if(z80_rd_asserted()){
+                    type = IO_READ;
+                }else if(z80_wr_asserted()){
+                    type = IO_WRITE;
+                }
+            }
+            if(type != NO_CYCLE){
+                if(z80_m1_asserted() && !(bus_state_index == 1 && (bus_state_trace[0].data == 0xcb || bus_state_trace[0].data == 0xdd || bus_state_trace[0].data == 0xed || bus_state_trace[0].data == 0xfd))){
+                    z80_instruction_ended();
+                    bus_state_index = 0;
+                }
+                bus_mid_cycle = true;
+                bus_state_trace[bus_state_index].cycle = type;
+                bus_state_trace[bus_state_index].data = z80_bus_data();
+                bus_state_trace[bus_state_index].address = z80_bus_address();
+                if(bus_state_index < (MAX_BUS_STATES-1))
+                    bus_state_index++;
+            }
+        }
+    }
 }

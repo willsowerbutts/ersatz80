@@ -77,7 +77,7 @@ extern bool z80_reset;
 extern bool z80_irq;
 extern bool z80_nmi;
 extern bool ram_ce;
-extern bool z80_bus_trace;
+extern int z80_bus_trace;
 extern uint8_t mmu[4];
 extern uint8_t ram_pages; // count of 16KB SRAM pages
 

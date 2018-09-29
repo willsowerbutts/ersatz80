@@ -24,8 +24,7 @@ void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
 void super_loadrom(int argc, char *argv[]);
 void super_loadfile(int argc, char *argv[]);
-void super_stepmode(int argc, char *argv[]);
-void stepmode(void);
+void super_trace(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "quit",       NULL            },
@@ -37,7 +36,7 @@ const cmd_entry_t cmd_table[] = {
     { "reset",      &super_reset    },
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },
-    { "stepmode",   &super_stepmode },
+    { "trace",   &super_trace },
     // list terminator:
     { NULL,         NULL            }
 };
@@ -223,7 +222,14 @@ void super_loadfile(int argc, char *argv[])
     }
 }
 
-void super_stepmode(int argc, char *argv[])
+void super_trace(int argc, char *argv[])
 {
-    stepmode();
+    if(argc != 1){
+        report("error: trace [0|1|2]\r\n");
+    }else{
+        z80_bus_trace = strtol(argv[0], NULL, 10);
+        report("z80_bus_trace=%d\r\n", z80_bus_trace);
+        if(z80_bus_trace > 0)
+            z80_clk_switch_stop();
+    }
 }

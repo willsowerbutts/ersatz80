@@ -305,37 +305,9 @@ void setup() {
 
 void loop() {
     while(true){
+        if(!z80_clk_running())
+            z80_clock_pulse();
         handle_z80_bus();
         handle_serial_input();
     }
 }
-
-void stepmode(void)
-{
-    uint16_t pc;
-    uint8_t instruction[8];
-    int ilen;
-    z80_clk_pause();
-
-    while(supervisor_input_mode){
-        z80_clock_pulse();
-        if(z80_rd_asserted() && z80_mreq_asserted()){
-            if(z80_m1_asserted() && !(ilen==1 && (instruction[0] == 0xcb || instruction[0] == 0xdd || instruction[0] == 0xed || instruction[0] == 0xfd))){
-                ilen = 0;
-                pc = z80_bus_address();
-                report("\r\n%04x  ", pc);
-            }
-            do{
-                instruction[ilen] = z80_bus_data();
-                z80_clock_pulse();
-            }while(z80_rd_asserted() && z80_mreq_asserted());
-            report("%02x ", instruction[ilen]);
-            ilen++;
-        }
-        handle_z80_bus();
-        handle_serial_input();
-    }
-
-    z80_clk_resume();
-}
-
