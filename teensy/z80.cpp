@@ -967,9 +967,9 @@ void z80_instruction_ended(void)
 
     bus_state_di = 0;
     z80ctrl_disasm(read_bus_state_bytes, output);
-    report("%04x: %-13s %2d  ", bus_state_trace[0].address, output, instruction_clock_cycles);
+    report("%-13s %2d  ", output, instruction_clock_cycles);
 
-    addr = ~bus_state_trace[0].address; // force us to print the addr
+    addr = ~bus_state_trace[0].address;
     for(int i=0; i<bus_state_count; i++){
         if(bus_state_trace[i].address != addr || cycle != bus_state_trace[i].cycle){
             addr = bus_state_trace[i].address;
@@ -977,8 +977,8 @@ void z80_instruction_ended(void)
             switch(bus_state_trace[i].cycle){
                 case MEM_READ:  report("%04x: ", bus_state_trace[i].address); break;
                 case MEM_WRITE: report("%04x<-", bus_state_trace[i].address); break;
-                case IO_READ:   report("io%02x: ", bus_state_trace[i].address & 0xFF); break;
-                case IO_WRITE:  report("io%02x<-", bus_state_trace[i].address & 0xFF); break;
+                case IO_READ:   report("io%04x: ", bus_state_trace[i].address); break;
+                case IO_WRITE:  report("io%04x<-", bus_state_trace[i].address); break;
             }
         }
         report("%02x%s", bus_state_trace[i].data, i == (bus_state_count-1) ? "" : (i == (bus_state_di-1) ? " / " : " "));
