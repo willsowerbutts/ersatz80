@@ -108,6 +108,12 @@ float z80_clk_slow_start(float frequency)
     return freq;
 }
 
+void z80_clk_slow_wait_event(void)
+{
+    FTM3_C2SC = FTM3_C2SC & (~FTM_CSC_CHF); // clear the CHF bit
+    while(!FTM3_C2SC & FTM_CSC_CHF);        // wait for CHG bit to be set
+}
+
 void z80_clk_slow_wait_overflow(void)
 {
     FTM3_SC = FTM3_SC & (~FTM_SC_TOF);  // clear the TOF flag by reading SC and then writing 0 to the TOF bit
@@ -206,9 +212,12 @@ void z80_set_clk(bool level)
     if(level){
         *portOutputRegister(CLK_STROBE) = 0; // Z80 CLK line goes high
         if(z80_bus_trace)
-            z80_bus_report_state();
-    }else
+            z80_bus_report_state(); // calls z80_clk_slow_wait_overflow();
+    }else{
         *portOutputRegister(CLK_STROBE) = 1; // Z80 CLK line goes low
+        if(z80_bus_trace)
+            z80_clk_slow_wait_event();
+    }
 }
 
 void z80_clock_pulse(void)
