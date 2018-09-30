@@ -597,6 +597,92 @@ void z80_memory_write(uint16_t address, uint8_t data)
 #endif
 }
 
+void z80_memory_write_block(uint16_t address, uint8_t *dataptr, uint16_t count)
+{
+    uint8_t data;
+    if(count == 0)
+        return;
+    z80_setup_address_data(address, *dataptr);
+#ifdef KINETISK
+    *portOutputRegister(Z80_MREQ) = 0;
+    *portOutputRegister(Z80_WR) = 0;
+#else
+    digitalWrite(Z80_MREQ, 0);
+    digitalWrite(Z80_WR, 0);
+#endif
+    while(count){
+        address++;
+        data = *(++dataptr);
+        count--;
+#ifdef KINETISK
+        *portOutputRegister(Z80_WR) = 1;
+        *portOutputRegister(Z80_D0) = data;
+        *portOutputRegister(Z80_D1) = data >> 1;
+        *portOutputRegister(Z80_D2) = data >> 2;
+        *portOutputRegister(Z80_D3) = data >> 3;
+        *portOutputRegister(Z80_D4) = data >> 4;
+        *portOutputRegister(Z80_D5) = data >> 5;
+        *portOutputRegister(Z80_D6) = data >> 6;
+        *portOutputRegister(Z80_D7) = data >> 7;
+        *portOutputRegister(Z80_A0) = address;
+        *portOutputRegister(Z80_A1) = address >> 1;
+        *portOutputRegister(Z80_A2) = address >> 2;
+        *portOutputRegister(Z80_A3) = address >> 3;
+        *portOutputRegister(Z80_A4) = address >> 4;
+        *portOutputRegister(Z80_A5) = address >> 5;
+        *portOutputRegister(Z80_A6) = address >> 6;
+        *portOutputRegister(Z80_A7) = address >> 7;
+        if(!(address&0xff)){ // skip updating this half
+            *portOutputRegister(Z80_A8)  = address >>  8;
+            *portOutputRegister(Z80_A9)  = address >>  9;
+            *portOutputRegister(Z80_A10) = address >> 10;
+            *portOutputRegister(Z80_A11) = address >> 11;
+            *portOutputRegister(Z80_A12) = address >> 12;
+            *portOutputRegister(Z80_A13) = address >> 13;
+            *portOutputRegister(Z80_A14) = address >> 14;
+            *portOutputRegister(Z80_A15) = address >> 15;
+        }
+        *portOutputRegister(Z80_WR) = 0;
+#else
+        digitalWrite(Z80_WR, 1);
+        digitalWrite(Z80_D0, data & (1<<0) ? 1 : 0);
+        digitalWrite(Z80_D1, data & (1<<1) ? 1 : 0);
+        digitalWrite(Z80_D2, data & (1<<2) ? 1 : 0);
+        digitalWrite(Z80_D3, data & (1<<3) ? 1 : 0);
+        digitalWrite(Z80_D4, data & (1<<4) ? 1 : 0);
+        digitalWrite(Z80_D5, data & (1<<5) ? 1 : 0);
+        digitalWrite(Z80_D6, data & (1<<6) ? 1 : 0);
+        digitalWrite(Z80_D7, data & (1<<7) ? 1 : 0);
+        digitalWrite(Z80_A0, address & (1<<0) ? 1 : 0);
+        digitalWrite(Z80_A1, address & (1<<1) ? 1 : 0);
+        digitalWrite(Z80_A2, address & (1<<2) ? 1 : 0);
+        digitalWrite(Z80_A3, address & (1<<3) ? 1 : 0);
+        digitalWrite(Z80_A4, address & (1<<4) ? 1 : 0);
+        digitalWrite(Z80_A5, address & (1<<5) ? 1 : 0);
+        digitalWrite(Z80_A6, address & (1<<6) ? 1 : 0);
+        digitalWrite(Z80_A7, address & (1<<7) ? 1 : 0);
+        if(!(address&0xff)){ // skip updating this half
+            digitalWrite(Z80_A8,  address & (1<<8)  ? 1 : 0);
+            digitalWrite(Z80_A9,  address & (1<<9)  ? 1 : 0);
+            digitalWrite(Z80_A10, address & (1<<10) ? 1 : 0);
+            digitalWrite(Z80_A11, address & (1<<11) ? 1 : 0);
+            digitalWrite(Z80_A12, address & (1<<12) ? 1 : 0);
+            digitalWrite(Z80_A13, address & (1<<13) ? 1 : 0);
+            digitalWrite(Z80_A14, address & (1<<14) ? 1 : 0);
+            digitalWrite(Z80_A15, address & (1<<15) ? 1 : 0);
+        }
+        digitalWrite(Z80_WR, 0);
+#endif
+    }
+#ifdef KINETISK
+    *portOutputRegister(Z80_WR) = 1;
+    *portOutputRegister(Z80_MREQ) = 1;
+#else
+    digitalWrite(Z80_WR, 1);
+    digitalWrite(Z80_MREQ, 1);
+#endif
+}
+
 uint8_t z80_memory_read(uint16_t address)
 {
     uint8_t byte;

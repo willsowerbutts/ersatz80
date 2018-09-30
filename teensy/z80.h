@@ -113,6 +113,7 @@ float z80_clk_switch_slow(float frequency);
 void z80_set_clk(bool level);
 bool z80_clk_running(void);
 void z80_clk_slow_wait_overflow(void);
+void z80_clk_slow_wait_event(void);
 typedef enum { CLK_FAST, CLK_SLOW, CLK_STOP } clk_mode_t;
 extern clk_mode_t clk_mode;
 extern float clk_slow_freq;
@@ -122,5 +123,6 @@ uint8_t iodevice_read(uint16_t address);
 void iodevice_write(uint16_t address, uint8_t value); // call ONLY when in DMA mode!
 uint8_t memory_read(uint16_t address);
 void memory_write(uint16_t address, uint8_t value);
+void z80_memory_write_block(uint16_t address, uint8_t *dataptr, uint16_t count);
 
 #endif
