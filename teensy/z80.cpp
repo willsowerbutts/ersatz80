@@ -976,9 +976,8 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
         z80_memory_write(1, start_address & 0xFF);
         z80_memory_write(2, start_address >> 8);
     }
-    
-    for(int i=0; i<length; i++)
-        z80_memory_write(address++, program[i]);
+
+    z80_memory_write_block(address, program, length);
 
     // restore machine state
     ram_ce = old_ram_ce;
