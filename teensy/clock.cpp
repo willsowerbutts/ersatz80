@@ -209,10 +209,14 @@ float z80_clk_switch_slow(float frequency)
 void z80_set_clk(bool level)
 {
     assert(clk_mode == CLK_STOP);
+    // maybe we should call z80_clk_slow_wait_overflow(), z80_clk_slow_wait_event()
+    // only when clk_mode == CLK_SUPERVISED?
     if(level){
         *portOutputRegister(CLK_STROBE) = 0; // Z80 CLK line goes high
-        if(z80_bus_trace)
-            z80_bus_report_state(); // calls z80_clk_slow_wait_overflow();
+        if(z80_bus_trace){
+            z80_clk_slow_wait_overflow();
+            z80_bus_trace_state();
+        }
     }else{
         *portOutputRegister(CLK_STROBE) = 1; // Z80 CLK line goes low
         if(z80_bus_trace)
