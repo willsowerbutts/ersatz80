@@ -175,7 +175,7 @@ void super_clk(int argc, char *argv[])
             report("clock: disabling bus tracing for high speed\r\n");
             z80_bus_trace = 0;
         }
-        if(z80_bus_trace)
+        if(z80_bus_trace && f != 0.0)
             z80_clk_set_supervised(f);
         else
             z80_clk_set_independent(f);
