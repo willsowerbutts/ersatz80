@@ -128,60 +128,67 @@ void super_regs(int argc, char *argv[])
 
 void super_clk(int argc, char *argv[])
 {
+    float f;
+    bool setclk = true;
+
     if(argc == 0){
-        // ... do nothing (we just want the report that follows)
+        setclk = false; // we just want the report that follows
     }else if(argc == 1 && (!strcasecmp(argv[0], "stop") || !strcasecmp(argv[0], "stopped"))){
-        z80_clk_switch_stop();
+        f = 0;
     }else if(argc == 1 && !strcasecmp(argv[0], "fast")){
-        z80_clk_switch_fast();
-    }else if(argc <= 2 && !strcasecmp(argv[0], "slow")){
-        float f;
-        if(argc == 1){
-            f = 1000000;
-        }else{ // argc == 2
-            char *endptr = NULL;
-            f = strtof(argv[1], &endptr);
-            if(f == 0){
-                report("error: bad frequency\r\n");
-                return;
-            }else{
-                switch(tolower(*endptr)){
-                    case 0:
-                        break;
-                    case 'k':
-                        f *= 1000;
-                        break;
-                    case 'm':
-                        f *= 1000000;
-                        break;
-                    case 'g': // possibly getting a bit ambitious here!
-                        f *= 1000000000;
-                        break;
-                    default:
-                        report("error: unrecognised unit suffix?");
-                        return;
-                }
+        f = CLK_FAST_FREQUENCY;
+    }else if(argc == 1){
+        char *endptr = NULL;
+        f = strtof(argv[0], &endptr);
+        if(f == 0 && endptr == argv[0]){
+            report("error: bad frequency\r\n");
+            return;
+        }else{
+            switch(*endptr){
+                case 0:
+                    break;
+                case 'k':
+                case 'K':
+                    f *= 1000;
+                    break;
+                case 'm':
+                case 'M':
+                    f *= 1000000;
+                    break;
+                case 'g': // possibly getting a bit ambitious here!
+                case 'G':
+                    f *= 1000000000;
+                    break;
+                default:
+                    report("error: unrecognised unit suffix?");
+                    return;
             }
         }
-        f = z80_clk_switch_slow(f);
+        z80_clk_set_independent(f);
     }else{
-        report("error: syntax: clk [stop|fast|slow <freq [kHz|MHz]>]\r\n");
+        report("error: syntax: clk [stop|fast|<freq[kHz|MHz|GHz]>]\r\n");
         return;
     }
 
-    report("clock: ");
-    switch(clk_mode){
-        case CLK_FAST: report("fast"); break;
-        case CLK_STOP: report("stopped"); break;
-        case CLK_SLOW: report("slow ");
-                       if(clk_slow_freq >= 950000.0)
-                           report("%.3fMHz", clk_slow_freq / 1000000.0);
-                       else if(clk_slow_freq > 950.0)
-                           report("%.3fkHz", clk_slow_freq / 1000.0);
-                       else
-                           report("%.3fHz", clk_slow_freq);
-                       break;
+    if(setclk){
+        if(f > CLK_SLOW_MAX_FREQUENCY && z80_bus_trace){
+            report("clock: disabling bus tracing for high speed\r\n");
+            z80_bus_trace = 0;
+        }
+        if(z80_bus_trace)
+            z80_clk_set_supervised(f);
+        else
+            z80_clk_set_independent(f);
     }
+
+    f = z80_clk_get_frequency();
+    report("clock: %s ", z80_clk_get_name());
+    if(f >= 950000.0)
+        report("%.3fMHz", f / 1000000.0);
+    else if(f > 950.0)
+        report("%.3fkHz", f / 1000.0);
+    else
+        report("%.3fHz", f);
     report("\r\n");
 }
 
@@ -229,6 +236,6 @@ void super_trace(int argc, char *argv[])
     }else{
         z80_bus_trace = strtol(argv[0], NULL, 10);
         if(z80_bus_trace > 0)
-            z80_clk_switch_stop();
+            z80_clk_set_supervised(z80_clk_get_frequency());
     }
 }

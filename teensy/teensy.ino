@@ -300,12 +300,12 @@ void setup() {
     // start up the Z80
     ram_ce = true;
     shift_register_update();
-    z80_clk_switch_fast();
+    z80_clk_set_independent(CLK_FAST_FREQUENCY);
 }
 
 void loop() {
     while(true){
-        if(!z80_clk_running())
+        if(!z80_clk_independent() && !z80_clk_stopped())
             z80_clock_pulse();
         handle_z80_bus();
         handle_serial_input();

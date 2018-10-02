@@ -52,13 +52,13 @@ void z80_bus_slave(void);
 void z80_setup(void);
 void mmu_setup(void);
 void sram_setup(void);
+void z80_memory_write_block(uint16_t address, uint8_t *dataptr, uint16_t count);
 void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address);
 void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address);
 void z80_do_reset(void);
 void z80_set_reset(bool active);
 void z80_clock_pulse_drive_data(uint8_t data);
 void z80_clock_pulse_while_writing(void);
-void z80_clock_pulse(void);
 void z80_set_busrq(bool request_dma);
 uint16_t z80_bus_address(void);
 uint8_t z80_bus_address_low8(void);
@@ -104,25 +104,26 @@ inline void z80_set_release_wait(bool release) { digitalWrite(WAIT_RESET, !relea
 #endif
 
 // clock.cpp:
+#define CLK_FAST_FREQUENCY (20000000.0f)
+#define CLK_SLOW_MAX_FREQUENCY (15000000.0f)
+
+void z80_clk_init(void);
+void z80_clk_set_independent(float frequency);
+void z80_clk_set_supervised(float frequency);
+float z80_clk_get_frequency(void);
+void z80_clk_set_supervised(bool supervised);
 void z80_clk_pause(void);
 void z80_clk_resume(void);
-void z80_clk_init(void);
-void z80_clk_switch_stop(void);
-void z80_clk_switch_fast(void);
-float z80_clk_switch_slow(float frequency);
+void z80_clock_pulse(void);
+bool z80_clk_independent(void); // do we need to manually jiggle the clock line?
+bool z80_clk_stopped(void);
 void z80_set_clk(bool level);
-bool z80_clk_running(void);
-void z80_clk_slow_wait_overflow(void);
-void z80_clk_slow_wait_event(void);
-typedef enum { CLK_FAST, CLK_SLOW, CLK_STOP } clk_mode_t;
-extern clk_mode_t clk_mode;
-extern float clk_slow_freq;
+const char *z80_clk_get_name(void);
 
 // teensy.ino:
 uint8_t iodevice_read(uint16_t address);
 void iodevice_write(uint16_t address, uint8_t value); // call ONLY when in DMA mode!
 uint8_t memory_read(uint16_t address);
 void memory_write(uint16_t address, uint8_t value);
-void z80_memory_write_block(uint16_t address, uint8_t *dataptr, uint16_t count);
 
 #endif
