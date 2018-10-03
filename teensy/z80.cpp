@@ -734,6 +734,7 @@ void z80_show_regs(void)
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
     uint8_t i;
     int z80_bus_trace_stash;
+    bool ram_ce_stash;
 
     z80_clk_pause();
 
@@ -761,6 +762,7 @@ void z80_show_regs(void)
     z80_bus_trace = 0;
 
     // disable the RAM so we can control the data bus
+    ram_ce_stash = ram_ce;
     ram_ce = false;
     shift_register_update();
 
@@ -810,10 +812,10 @@ void z80_show_regs(void)
     z80_send_instruction(pc & 0xFF);             //  ...
     z80_send_instruction(pc >> 8);               //  ...
 
-    z80_bus_trace = z80_bus_trace_stash;
-    ram_ce = true;                               // turn back on the RAM
+    ram_ce = ram_ce_stash;                       // enable SRAM (if it was enabled before)
     shift_register_update();
-    z80_clk_resume();
+    z80_bus_trace = z80_bus_trace_stash;         // and tracing
+    z80_clk_resume();                            // fire up clk
 
     report("PC=%04x SP=%04x\r\nAF=%04x AF'=%04x\r\n" \
            "BC=%04x BC'=%04x\r\nDE=%04x DE'=%04x\r\n" \
