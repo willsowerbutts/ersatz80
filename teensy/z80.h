@@ -68,6 +68,7 @@ void z80_setup_drive_data(uint8_t data);
 void z80_shutdown_drive_data(void);
 void z80_set_mmu(int bank, uint8_t page);
 
+void z80_show_regs(void);
 void z80_show_pin_states(void);
 void z80_bus_trace_state(void);
 void handle_z80_bus(void);

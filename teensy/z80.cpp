@@ -733,6 +733,7 @@ void z80_show_regs(void)
 {
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
     uint8_t i;
+    int z80_bus_trace_stash;
 
     z80_clk_pause();
 
@@ -754,6 +755,10 @@ void z80_show_regs(void)
             z80_clock_pulse();
         handle_z80_bus(); 
     }
+
+    // turn off bus tracing before we blow its tiny little mind
+    z80_bus_trace_stash = z80_bus_trace;
+    z80_bus_trace = 0;
 
     // disable the RAM so we can control the data bus
     ram_ce = false;
@@ -805,6 +810,7 @@ void z80_show_regs(void)
     z80_send_instruction(pc & 0xFF);             //  ...
     z80_send_instruction(pc >> 8);               //  ...
 
+    z80_bus_trace = z80_bus_trace_stash;
     ram_ce = true;                               // turn back on the RAM
     shift_register_update();
     z80_clk_resume();

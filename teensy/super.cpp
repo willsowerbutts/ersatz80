@@ -18,7 +18,6 @@ typedef struct {
     void (*function)(int argc, char *argv[]);
 } cmd_entry_t;
 
-void z80_show_regs(void);
 void super_reset(int argc, char *argv[]);
 void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
@@ -122,7 +121,6 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
 
 void super_regs(int argc, char *argv[])
 {
-    // TODO -- need to pause clock while we do this
     z80_show_regs();
 }
 
