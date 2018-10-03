@@ -207,12 +207,7 @@ void super_loadrom(int argc, char *argv[])
 
 void super_reset(int argc, char *argv[])
 {
-    // TODO -- this assumes clock is running
-    z80_set_reset(true);
-    delay(10);
-    z80_set_release_wait(true);
-    z80_set_release_wait(false);
-    z80_set_reset(false);
+    z80_do_reset();
 }
 
 

@@ -428,7 +428,7 @@ void z80_clock_pulse_while_writing(void)
 
 void z80_do_reset(void)
 {
-    // report("Z80 CPU Reset\r\n");
+    z80_clk_pause();
     z80_set_reset(true);
     z80_set_release_wait(true);
     for(int i=0; i<10; i++){ // Z80 requires at least 3 clocks to fully reset
@@ -437,6 +437,7 @@ void z80_do_reset(void)
     }
     z80_set_release_wait(false);
     z80_set_reset(false);
+    z80_clk_resume();
 }
 
 void z80_setup_address(uint16_t address)

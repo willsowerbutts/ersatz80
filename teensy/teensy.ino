@@ -282,14 +282,15 @@ void __assert_func(const char *__file, int __lineno, const char *__func, const c
 
 void setup() {
     z80_setup();
-    Serial.begin(115200); // baud rate specified here is irrelevant
-    while(!Serial.dtr()); // wait for a terminal to connect to the USB serial device
+    z80_clk_set_independent(0.0);
+    z80_do_reset();
+    Serial.begin(115200);
+    while(!Serial.dtr()); // wait for a terminal to connect to the USB ACM device
     report("                     _       ___   ___  \r\n  ___ _ __ ___  __ _| |_ ___( _ ) / _ \\ \r\n"
            " / _ \\ '__/ __|/ _` | __|_  / _ \\| | | |\r\n|  __/ |  \\__ \\ (_| | |_ / / (_) | |_| |\r\n"
            " \\___|_|  |___/\\__,_|\\__/___\\___/ \\___/ \r\nersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", 
            F_CPU/1000000.0, F_BUS/1000000.0);
     sdcard_init();
-    z80_do_reset();
     mmu_setup();
     sram_setup();
     report("ersatz80: load ROM\r\n");
@@ -297,7 +298,7 @@ void setup() {
     report("ersatz80: reset Z80\r\n");
     z80_do_reset();
     report("Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
-    // start up the Z80
+    // fire up the Z80
     ram_ce = true;
     shift_register_update();
     z80_clk_set_independent(CLK_FAST_FREQUENCY);
