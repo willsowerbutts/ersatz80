@@ -35,7 +35,7 @@ const cmd_entry_t cmd_table[] = {
     { "reset",      &super_reset    },
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },
-    { "trace",   &super_trace },
+    { "trace",      &super_trace    },
     // list terminator:
     { NULL,         NULL            }
 };
@@ -230,5 +230,7 @@ void super_trace(int argc, char *argv[])
         z80_bus_trace = strtol(argv[0], NULL, 10);
         if(z80_bus_trace > 0)
             z80_clk_set_supervised(z80_clk_get_frequency());
+        else
+            z80_clk_set_independent(z80_clk_get_frequency());
     }
 }
