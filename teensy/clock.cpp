@@ -226,8 +226,9 @@ void z80_clk_pause(void)
 void z80_clk_resume(void)
 {
     switch(paused_clk_mode){
-        case CLK_STOPPED:
         case CLK_SUPERVISED:
+            clk_mode = CLK_SUPERVISED;
+        case CLK_STOPPED:
             break;
         case CLK_SLOW:
             z80_clk_slow_start(clk_slow_requested);
