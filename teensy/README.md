@@ -19,6 +19,7 @@ Bill of materials for PCB:
  - Optional: 2-pin 2.54mm header for 3V coin cell (J4)
  - Optional: 2-pin 2.54mm header to connect USB power to 5V input (J5, or just fit a wire jumper here instead)
  - Optional: 2-pin power socket to supply external 5V power (J2, or omit this if using USB power).
+ - 14 x 0.1uF MLCC capacitors
 
 If you want to use the expansion connector you will additionally need headers
 and sockets for the three sets of extra pins on the underside of the Teensy
@@ -39,3 +40,6 @@ at J5. This will power the board from the USB connector on the Teesny 3.5. In
 principle other power supply arrangements are possible but these have not been
 tested, and you will want to connect to the USB port in any event so you can
 access the console!
+
+The revision 1 PCB is a bit packed and you may wish to omit the two capacitors
+between U7/U11 and U8/U15 to ensure a clean fit.
