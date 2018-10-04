@@ -5,9 +5,9 @@
         ld hl, 1        ; try 1, 3, 0x55 -- any non-zero value
         ld b, 0         ; b=0 -> shift left;  b=1 -> shift right
 again:  ld a, l         ; first we output the pattern
-        out (0x11), a   ; all 8 bits are used
+        out (0x10), a   ; all 8 bits are used
         ld a, h
-        out (0x12), a   ; low 8 bits used, top 8 bits ignored
+        out (0x11), a   ; low 8 bits used, top 8 bits ignored
         bit 0, b        ; test B bit 0: going left (0) or right (1)?
         jr nz, sright   ; jump if shifting right
         add hl, hl      ; else shift left 1 bit

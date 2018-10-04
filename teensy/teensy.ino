@@ -58,18 +58,18 @@ void uart_write_data(uint16_t address, uint8_t value)
 void user_leds_write(uint16_t address, uint8_t value)
 {
     if(address & 1)
-        user_led = (user_led & 0xFF00) | value;
-    else
         user_led = (user_led & 0xFF) | ((value & 0x0F) << 8);
+    else
+        user_led = (user_led & 0xFF00) | value;
     shift_register_update();
 }
 
 uint8_t user_leds_read(uint16_t address)
 {
     if(address & 1)
-        return user_led & 0xFF;
-    else
         return (user_led >> 8) & 0x0F;
+    else
+        return user_led & 0xFF;
 }
 
 uint8_t mmu_read(uint16_t address)
@@ -106,9 +106,9 @@ const ioregister_functions_t io_register_handler[256] = {
     { NULL,                 NULL },                 // 0x0d   ...
     { NULL,                 NULL },                 // 0x0e   (reserved for UART 8)
     { NULL,                 NULL },                 // 0x0f   ...
-    { NULL,                 NULL },                 // 0x10   (unused)
-    { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (low 8 bits)
-    { user_leds_read,       user_leds_write },      // 0x12 - user LEDs (top 4 bits)
+    { user_leds_read,       user_leds_write },      // 0x10 - user LEDs (low 8 bits)
+    { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (top 4 bits)
+    { NULL,                 NULL },                 // 0x12
     { NULL,                 NULL },                 // 0x13
     { NULL,                 NULL },                 // 0x14
     { NULL,                 NULL },                 // 0x15
