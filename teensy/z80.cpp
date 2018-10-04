@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "rom.h"
 #include "debug.h"
+#include "clock.h"
 #include "z80.h"
 #include "sdcard.h"
 #include "disasm.h"

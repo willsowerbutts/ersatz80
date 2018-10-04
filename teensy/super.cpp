@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "z80.h"
+#include "clock.h"
 #include "serial.h"
 #include "super.h"
 #include "debug.h"

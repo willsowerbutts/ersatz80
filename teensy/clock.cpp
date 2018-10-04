@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <assert.h>
 #include "debug.h"
+#include "clock.h"
 #include "z80.h"
 
 void z80_slow_clock_set_frequency(float frequency);
