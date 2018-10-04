@@ -613,8 +613,7 @@ void z80_memory_write_block(uint16_t address, uint8_t *dataptr, uint16_t count)
     digitalWrite(Z80_WR, 0);
 #endif
     while(count){
-        address++;
-        data = *(++dataptr);
+        data = *(dataptr++);
         count--;
 #ifdef KINETISK
         *portOutputRegister(Z80_WR) = 1;
@@ -675,6 +674,7 @@ void z80_memory_write_block(uint16_t address, uint8_t *dataptr, uint16_t count)
         }
         digitalWrite(Z80_WR, 0);
 #endif
+        address++;
     }
 #ifdef KINETISK
     *portOutputRegister(Z80_WR) = 1;
