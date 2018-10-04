@@ -71,6 +71,8 @@ void z80_show_regs(void);
 void z80_show_pin_states(void);
 void z80_bus_trace_state(void);
 void handle_z80_bus(void);
+void begin_dma(void);
+void end_dma(void);
 
 extern uint16_t user_led;
 extern bool z80_reset;
