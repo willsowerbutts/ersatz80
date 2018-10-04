@@ -10,6 +10,7 @@ Bill of materials for PCB:
  - 74AHCT02
  - 74AHCT74
  - 20MHz full- or half-can oscillator
+ - 5mm green LED (D1)
  - 2 x 10 LED bar graphs (alternatively 1 x 20)
  - 3 x 1K 8 bussed resistor network (9 pins)
  - Sockets for all ICs
