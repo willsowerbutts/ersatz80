@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "z80.h"
+#include "clock.h"
 #include "serial.h"
 #include "debug.h"
 #include "super.h"
@@ -89,23 +90,23 @@ typedef struct {
 } ioregister_functions_t;
 
 const ioregister_functions_t io_register_handler[256] = {
-    { uart_read_status,     NULL },                 // 0x00 - UART status
-    { uart_read_data,       uart_write_data },      // 0x01 - UART data
-    { NULL,                 NULL },                 // 0x02
-    { NULL,                 NULL },                 // 0x03
-    { NULL,                 NULL },                 // 0x04
-    { NULL,                 NULL },                 // 0x05
-    { NULL,                 NULL },                 // 0x06
-    { NULL,                 NULL },                 // 0x07
-    { NULL,                 NULL },                 // 0x08
-    { NULL,                 NULL },                 // 0x09
-    { NULL,                 NULL },                 // 0x0a
-    { NULL,                 NULL },                 // 0x0b
-    { NULL,                 NULL },                 // 0x0c
-    { NULL,                 NULL },                 // 0x0d
-    { NULL,                 NULL },                 // 0x0e
-    { NULL,                 NULL },                 // 0x0f
-    { NULL,                 NULL },                 // 0x10
+    { uart_read_status,     NULL },                 // 0x00 - UART 1 status
+    { uart_read_data,       uart_write_data },      // 0x01 - UART 1 data
+    { NULL,                 NULL },                 // 0x02   (reserved for UART 2)
+    { NULL,                 NULL },                 // 0x03   ...
+    { NULL,                 NULL },                 // 0x04   (reserved for UART 3)
+    { NULL,                 NULL },                 // 0x05   ...
+    { NULL,                 NULL },                 // 0x06   (reserved for UART 4)
+    { NULL,                 NULL },                 // 0x07   ...
+    { NULL,                 NULL },                 // 0x08   (reserved for UART 5)
+    { NULL,                 NULL },                 // 0x09   ...
+    { NULL,                 NULL },                 // 0x0a   (reserved for UART 6)
+    { NULL,                 NULL },                 // 0x0b   ...
+    { NULL,                 NULL },                 // 0x0c   (reserved for UART 7)
+    { NULL,                 NULL },                 // 0x0d   ...
+    { NULL,                 NULL },                 // 0x0e   (reserved for UART 8)
+    { NULL,                 NULL },                 // 0x0f   ...
+    { NULL,                 NULL },                 // 0x10   (unused)
     { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (low 8 bits)
     { user_leds_read,       user_leds_write },      // 0x12 - user LEDs (top 4 bits)
     { NULL,                 NULL },                 // 0x13
@@ -121,15 +122,15 @@ const ioregister_functions_t io_register_handler[256] = {
     { NULL,                 NULL },                 // 0x1d
     { NULL,                 NULL },                 // 0x1e
     { NULL,                 NULL },                 // 0x1f
-    { NULL,                 NULL },                 // 0x20
-    { NULL,                 NULL },                 // 0x21
-    { NULL,                 NULL },                 // 0x22
-    { NULL,                 NULL },                 // 0x23
-    { NULL,                 NULL },                 // 0x24
-    { NULL,                 NULL },                 // 0x25
-    { NULL,                 NULL },                 // 0x26
-    { NULL,                 NULL },                 // 0x27
-    { NULL,                 NULL },                 // 0x28
+    { disk_sector_read,     disk_sector_write   },  // 0x20 - disk interface (sector bits 24--31)
+    { disk_sector_read,     disk_sector_write   },  // 0x21 - disk interface (sector bits 16--23)
+    { disk_sector_read,     disk_sector_write   },  // 0x22 - disk interface (sector bits 8--15)
+    { disk_sector_read,     disk_sector_write   },  // 0x23 - disk interface (sector bits 0--7)
+    { disk_address_read,    disk_address_write  },  // 0x24 - disk interface (DMA address bits 16--21 + 2 flags)
+    { disk_address_read,    disk_address_write  },  // 0x25 - disk interface (DMA address bits 8--15)
+    { disk_address_read,    disk_address_write  },  // 0x26 - disk interface (DMA address bits 0--7)
+    { disk_seccount_read,   disk_seccount_write },  // 0x27 - disk interface (sector count)
+    { disk_status_read,     disk_command_write  },  // 0x28 - disk interface (command/status)
     { NULL,                 NULL },                 // 0x29
     { NULL,                 NULL },                 // 0x2a
     { NULL,                 NULL },                 // 0x2b
