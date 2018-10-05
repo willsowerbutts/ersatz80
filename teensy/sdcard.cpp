@@ -117,6 +117,11 @@ void disk_transfer_write(void)
     uint8_t iobuf[MAX_SECTOR_SIZE];
     int remain, count, maxsec, bytes, r;
 
+    if(!disk[disk_selected].writable){
+        disk[disk_selected].error = true;
+        return;
+    }
+
     begin_dma();
 
     maxsec = MAX_SECTOR_SIZE >> disk[disk_selected].sector_size_log;
@@ -141,6 +146,7 @@ void disk_transfer_write(void)
 void disk_mount(void)
 {
     disk[disk_selected].file.open(&sdcard, "test1.dsk", FILE_WRITE);
+    disk[d].writable = true;
     // TODO error handling!
 }
 
