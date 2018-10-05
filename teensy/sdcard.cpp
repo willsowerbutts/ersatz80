@@ -114,12 +114,33 @@ void disk_transfer_read(void)
 
 void disk_transfer_write(void)
 {
-    // TODO
+    uint8_t iobuf[MAX_SECTOR_SIZE];
+    int remain, count, maxsec, bytes, r;
+
+    begin_dma();
+
+    maxsec = MAX_SECTOR_SIZE >> disk[disk_selected].sector_size_log;
+    disk[disk_selected].file.seekSet(disk[disk_selected].sector_number << disk[disk_selected].sector_size_log);
+    remain = disk[disk_selected].sector_count;
+    while(remain){
+        count = (remain > maxsec) ? maxsec : remain;
+        bytes = count << disk[disk_selected].sector_size_log;
+        z80_memory_read_block(disk[disk_selected].dma_address, iobuf, bytes);
+        r = disk[disk_selected].file.write(iobuf, bytes);
+        if(r < bytes)
+            disk[disk_selected].error = true; // report error condition
+        // advance our pointers
+        disk[disk_selected].dma_address += bytes;
+        disk[disk_selected].sector_number += count;
+        remain -= count;
+    }
+
+    end_dma();
 }
 
 void disk_mount(void)
 {
-    disk[disk_selected].file.open(&sdcard, "basic.rom", FILE_READ);
+    disk[disk_selected].file.open(&sdcard, "test1.dsk", FILE_WRITE);
     // TODO error handling!
 }
 
@@ -130,7 +151,9 @@ void disk_unmount(void)
 
 void disk_seek_final_sector(void)
 {
-    // TODO
+    disk[disk_selected].file.seekEnd(0);
+    disk[disk_selected].sector_number = 
+        disk[disk_selected].file.curPosition() >> disk[disk_selected].sector_size_log;
 }
 
 void disk_command_write(uint16_t address, uint8_t value)
@@ -143,16 +166,16 @@ void disk_command_write(uint16_t address, uint8_t value)
                 report("disk: attempt to select unavailable drive %d!\r\n", value);
                 // do we need a global error flag also?
             break;
-        case 0x10: // set sector size
+        case 0x10: // set sector size 128 bytes
             disk[disk_selected].sector_size_log = 7;
             break;
-        case 0x11: // set sector size
+        case 0x11: // set sector size 256 bytes
             disk[disk_selected].sector_size_log = 8;
             break;
-        case 0x12: // set sector size
+        case 0x12: // set sector size 512 bytes
             disk[disk_selected].sector_size_log = 9;
             break;
-        case 0x13: // set sector size
+        case 0x13: // set sector size 1024 bytes
             disk[disk_selected].sector_size_log = 10;
             break;
         case 0x20: // perform read operation
