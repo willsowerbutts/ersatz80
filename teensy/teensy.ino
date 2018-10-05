@@ -84,6 +84,17 @@ void mmu_write(uint16_t address, uint8_t value)
     z80_bus_slave();
 }
 
+void timer_write(uint16_t address, uint8_t value)
+{
+    static unsigned long last_timer = 0;
+    unsigned long now;
+
+    now = micros();
+    if(value)
+        report("timer: %lu\r\n", now-last_timer);
+    last_timer = now;
+}
+
 typedef struct {
     uint8_t (*read_function)(uint16_t address);
     void (*write_function)(uint16_t address, uint8_t value);
@@ -108,7 +119,7 @@ const ioregister_functions_t io_register_handler[256] = {
     { NULL,                 NULL },                 // 0x0f   ...
     { user_leds_read,       user_leds_write },      // 0x10 - user LEDs (low 8 bits)
     { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (top 4 bits)
-    { NULL,                 NULL },                 // 0x12
+    { NULL,                 timer_write },          // 0x12 - handy timer doodah
     { NULL,                 NULL },                 // 0x13
     { NULL,                 NULL },                 // 0x14
     { NULL,                 NULL },                 // 0x15
