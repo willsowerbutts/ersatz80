@@ -2,40 +2,30 @@
 #include "debug.h"
 #include "sdcard.h"
 
-#define NUM_DISK_DRIVES 16
 #define MAX_SECTOR_SIZE 1024
 SdFatSdioEX sdcard; // can also try using SdFatSdio here -- it may be slower?
 
 // Z80 accessible register map:
-//   base + 0 -- R/W: disk sector number (bits 24--31)
-//   base + 1 -- R/W: disk sector number (bits 16--23)
-//   base + 2 -- R/W: disk sector number (bits 8--15)
-//   base + 3 -- R/W: disk sector number (bits 0--7)
-//   base + 4 -- R/W: DMA address (bits 16--23; top 2 bits are flags)
-//   base + 5 -- R/W: DMA address (bits 8--15)
-//   base + 6 -- R/W: DMA address (bits 0--7)
-//   base + 7 -- R/W: sector count
-//   base + 8 -- R: status register, W: command register
+//   base + 0 -- R/W: selected disk sector number (bits 24--31)
+//   base + 1 -- R/W: selected disk sector number (bits 16--23)
+//   base + 2 -- R/W: selected disk sector number (bits 8--15)
+//   base + 3 -- R/W: selected disk sector number (bits 0--7)
+//   base + 4 -- R/W: selected disk DMA address (bits 16--23; top 2 bits are flags)
+//   base + 5 -- R/W: selected disk DMA address (bits 8--15)
+//   base + 6 -- R/W: selected disk DMA address (bits 0--7)
+//   base + 7 -- R/W: selected disk sector count
+//   base + 8 -- R: controller status register, W: controller command register
 //               status register bits:
-//               0--3 - selected disk number (0--15)
-//               4--5 - selected sector size
+//               0--3 - selected disk drive number (0--15)
+//               4--5 - selected disk sector size
 //                        00 = 128 bytes
 //                        01 = 256 bytes
 //                        10 = 512 bytes
 //                        11 = 1024 bytes
-//                  6 - read-write flag (0 = read-only, 1 = read-write)
-//                  7 - error flag (0 = OK, 1 = error)
-//                  would be nice if there was some way to read out an error code also?
-
-typedef struct {
-    SdBaseFile file;
-    uint32_t   sector_number;
-    uint32_t   dma_address;
-    uint8_t    sector_size_log;  // stored as power of 2; 7=128, 8=256, 9=512, 10=1024.
-    uint8_t    sector_count;
-    bool       error;
-    bool       writable;
-} disk_info_t;
+//                  6 - selected disk read-write flag (0 = read-only, 1 = read-write)
+//                  7 - selected disk error flag (0 = OK, 1 = error)
+//                  would be nice if there was some way to read out an error code also? put in sec num?
+//                  would be nice to read out a 'mounted' flag also? (file.isOpen()) second status byte?
 
 disk_info_t disk[NUM_DISK_DRIVES];
 uint8_t disk_selected;
@@ -146,20 +136,19 @@ void disk_transfer_write(void)
 void disk_mount(void)
 {
     disk[disk_selected].file.open(&sdcard, "test1.dsk", FILE_WRITE);
-    disk[d].writable = true;
+    disk[disk_selected].writable = true;
     // TODO error handling!
 }
 
 void disk_unmount(void)
 {
     disk[disk_selected].file.close();
+    disk[disk_selected].writable = false;
 }
 
 void disk_seek_final_sector(void)
 {
-    disk[disk_selected].file.seekEnd(0);
-    disk[disk_selected].sector_number = 
-        disk[disk_selected].file.curPosition() >> disk[disk_selected].sector_size_log;
+    disk[disk_selected].sector_number = disk[disk_selected].file.fileSize() >> disk[disk_selected].sector_size_log;
 }
 
 void disk_command_write(uint16_t address, uint8_t value)
@@ -215,7 +204,7 @@ void sdcard_init() {
         disk[d].sector_size_log = 9; // 2^9 = 512 bytes
         disk[d].sector_count = 1;
         disk[d].error = false;
-        disk[d].writable = true;
+        disk[d].writable = false;
     }
 
     SdioCard *card;

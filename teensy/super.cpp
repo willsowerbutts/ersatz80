@@ -7,6 +7,7 @@
 #include "super.h"
 #include "debug.h"
 #include "rom.h"
+#include "sdcard.h"
 
 #define SBUFLEN 80
 #define SMAXARG 10
@@ -25,6 +26,8 @@ void super_clk(int argc, char *argv[]);
 void super_loadrom(int argc, char *argv[]);
 void super_loadfile(int argc, char *argv[]);
 void super_trace(int argc, char *argv[]);
+void super_lsdir(int argc, char *argv[]);
+void super_disk(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "quit",       NULL            },
@@ -37,6 +40,10 @@ const cmd_entry_t cmd_table[] = {
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },
     { "trace",      &super_trace    },
+    { "ls",         &super_lsdir    },
+    { "dir",        &super_lsdir    },
+    { "disk",       &super_disk     },
+
     // list terminator:
     { NULL,         NULL            }
 };
@@ -234,4 +241,33 @@ void super_trace(int argc, char *argv[])
         else
             z80_clk_set_independent(z80_clk_get_frequency());
     }
+}
+
+void super_lsdir(int argc, char *argv[])
+{
+    sdcard.ls(LS_DATE | LS_SIZE | LS_R);
+    // TODO: improve this
+}
+
+void super_disk(int argc, char *argv[])
+{
+    if(argc == 0){
+        for(int d=0; d<NUM_DISK_DRIVES; d++){
+            report("Disk %d: ", d);
+            if(disk[d].file.isOpen()){
+                char filename[64];
+                uint32_t filesize = disk[d].file.fileSize();
+                disk[d].file.getName(filename, 64);
+                report("filename \"%s\", %.3fMB, %d x %d byte sectors, %s\r\n",
+                        filename,
+                        (float)filesize / (1024.0 * 1024.0),
+                        filesize >> disk[d].sector_size_log,
+                        1 << disk[d].sector_size_log,
+                        disk[d].writable ? "read-write" : "read-only");
+            }else{
+                report("unmounted\r\n");
+            }
+        }
+    }
+    // TODO: support for mount/unmount etc
 }
