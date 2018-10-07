@@ -133,7 +133,7 @@ const ioregister_functions_t io_register_handler[256] = {
     { NULL,                 NULL },                 // 0x1d
     { NULL,                 NULL },                 // 0x1e
     { NULL,                 NULL },                 // 0x1f
-    { disk_sector_read,     disk_sector_write   },  // 0x20 - disk interface (sector bits 24--31)
+    { NULL,                 NULL },                 // 0x20   (reserved for disk interface extensions)
     { disk_sector_read,     disk_sector_write   },  // 0x21 - disk interface (sector bits 16--23)
     { disk_sector_read,     disk_sector_write   },  // 0x22 - disk interface (sector bits 8--15)
     { disk_sector_read,     disk_sector_write   },  // 0x23 - disk interface (sector bits 0--7)

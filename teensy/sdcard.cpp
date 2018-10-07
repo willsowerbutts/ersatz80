@@ -3,10 +3,10 @@
 #include "sdcard.h"
 
 #define MAX_SECTOR_SIZE 1024
-SdFatSdioEX sdcard; // can also try using SdFatSdio here -- it may be slower?
+SdFatSdioEX sdcard;
 
 // Z80 accessible register map:
-//   base + 0 -- R/W: selected disk sector number (bits 24--31)
+//   base + 0 -- unimplemented; reserved for future expansion
 //   base + 1 -- R/W: selected disk sector number (bits 16--23)
 //   base + 2 -- R/W: selected disk sector number (bits 8--15)
 //   base + 3 -- R/W: selected disk sector number (bits 0--7)
@@ -25,18 +25,21 @@ SdFatSdioEX sdcard; // can also try using SdFatSdio here -- it may be slower?
 //                  6 - selected disk read-write flag (0 = read-only, 1 = read-write)
 //                  7 - selected disk error flag (0 = OK, 1 = error)
 //                  would be nice if there was some way to read out an error code also? put in sec num?
-//                  would be nice to read out a 'mounted' flag also? (file.isOpen()) second status byte?
 
 disk_info_t disk[NUM_DISK_DRIVES];
 uint8_t disk_selected;
 
 uint8_t disk_sector_read(uint16_t address)
 {
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return 0;
     return disk[disk_selected].sector_number >> (8 * (3 - (address & 3)));
 }
 
 void disk_sector_write(uint16_t address, uint8_t value)
 {
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return;
     disk[disk_selected].sector_number = (disk[disk_selected].sector_number
         & ~(0xff << (8 * (3 - (address & 3)))))  // mask off the relevant octet
         | (value << (8 * (3 - (address & 3))));  // and set it to the new value
@@ -44,28 +47,38 @@ void disk_sector_write(uint16_t address, uint8_t value)
 
 uint8_t disk_address_read(uint16_t address)
 {
-    return disk[disk_selected].dma_address >> (8 * (3 - (address & 3)));
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return 0;
+    return disk[disk_selected].dma_address >> (8 * (2 - (address & 3)));
 }
 
 void disk_address_write(uint16_t address, uint8_t value)
 {
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return;
     disk[disk_selected].dma_address = (disk[disk_selected].dma_address 
-        & ~(0xff << (8 * (3 - (address & 3)))))  // mask out the relevant octet
-        | (value << (8 * (3 - (address & 3))));  // and set it to the new value
+        & ~(0xff << (8 * (2 - (address & 3)))))  // mask out the relevant octet
+        | (value << (8 * (2 - (address & 3))));  // and set it to the new value
 }
 
 uint8_t disk_seccount_read(uint16_t address)
 {
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return 0;
     return disk[disk_selected].sector_count;
 }
 
 void disk_seccount_write(uint16_t address, uint8_t value)
 {
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return;
     disk[disk_selected].sector_count = value;
 }
 
 uint8_t disk_status_read(uint16_t address)
 {
+    if(disk_selected >= NUM_DISK_DRIVES)
+        return 0x80; // error flag always set for non-existent drives
     return (disk_selected & 0x0F) |                                 // bits 0--3: selected disk number
            ((disk[disk_selected].sector_size_log-7) << 4) |         // bits 4--5: selected sector size
            (disk[disk_selected].writable ? 0x40: 0x00) |            // bit 6: read/write flag
@@ -135,15 +148,23 @@ void disk_transfer_write(void)
 
 void disk_mount(void)
 {
-    disk[disk_selected].file.open(&sdcard, "test1.dsk", FILE_WRITE);
-    disk[disk_selected].writable = true;
-    // TODO error handling!
+    bool okay;
+    char filename[64];
+    // we need to read our params from the DMA address. being lazy for now.
+    sprintf(filename, "test%d.dsk", disk_selected);
+    okay = disk[disk_selected].file.open(&sdcard, filename, FILE_WRITE);
+    disk[disk_selected].sector_number = 0;
+    disk[disk_selected].error = !okay;
+    disk[disk_selected].mounted = okay;
+    disk[disk_selected].writable = okay;
 }
 
 void disk_unmount(void)
 {
     disk[disk_selected].file.close();
+    disk[disk_selected].mounted = false;
     disk[disk_selected].writable = false;
+    disk[disk_selected].error = true; // error=true always for unmounted drives
 }
 
 void disk_seek_final_sector(void)
@@ -153,25 +174,19 @@ void disk_seek_final_sector(void)
 
 void disk_command_write(uint16_t address, uint8_t value)
 {
+    // for non-existent drives, only allow the select drive commands (0x00 ... 0x0F)
+    if(disk_selected >= NUM_DISK_DRIVES && value > 0x0F)
+        return;
+
     switch(value){
-        case 0x00 ... 0x0F: // select active drive number
-            if(value < NUM_DISK_DRIVES)
-                disk_selected = value;
-            else
-                report("disk: attempt to select unavailable drive %d!\r\n", value);
-                // do we need a global error flag also?
+        case 0x00 ... 0x0F: // select active drive number (only 0...NUM_DISK_DRIVES-1 exist)
+            disk_selected = value;
             break;
-        case 0x10: // set sector size 128 bytes
-            disk[disk_selected].sector_size_log = 7;
-            break;
-        case 0x11: // set sector size 256 bytes
-            disk[disk_selected].sector_size_log = 8;
-            break;
-        case 0x12: // set sector size 512 bytes
-            disk[disk_selected].sector_size_log = 9;
-            break;
-        case 0x13: // set sector size 1024 bytes
-            disk[disk_selected].sector_size_log = 10;
+        case 0x10: // set sector size 128 bytes (2^7)
+        case 0x11: // set sector size 256 bytes (2^8)
+        case 0x12: // set sector size 512 bytes (2^9)
+        case 0x13: // set sector size 1024 bytes (2^10)
+            disk[disk_selected].sector_size_log = value - 9; // 0x10 ... 0x13 -> 7 ... 10
             break;
         case 0x20: // perform read operation
             disk_transfer_read();
@@ -188,12 +203,11 @@ void disk_command_write(uint16_t address, uint8_t value)
         case 0x24: // seek to final sector (useful to determine device size)
             disk_seek_final_sector();
             break;
-        case 0x80: // clear error flag
-            disk[disk_selected].error = false;
+        case 0x80: // clear the error flag - except unmounted drives, which always indicate error
+            disk[disk_selected].error = !disk[disk_selected].mounted;
             break;
         default:
-            report("disk: unimplemented command 0x%02x!\r\n", value);
-            // do we need a global error flag also?
+            report("disk %d: unimplemented command 0x%02x!\r\n", disk_selected, value);
     }
 }
 
@@ -203,8 +217,9 @@ void sdcard_init() {
         disk[d].dma_address = 0;
         disk[d].sector_size_log = 9; // 2^9 = 512 bytes
         disk[d].sector_count = 1;
-        disk[d].error = false;
+        disk[d].error = true;       // error=true always for unmounted drives
         disk[d].writable = false;
+        disk[d].mounted = false;
     }
 
     SdioCard *card;

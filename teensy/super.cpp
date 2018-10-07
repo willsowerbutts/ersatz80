@@ -254,7 +254,7 @@ void super_disk(int argc, char *argv[])
     if(argc == 0){
         for(int d=0; d<NUM_DISK_DRIVES; d++){
             report("Disk %d: ", d);
-            if(disk[d].file.isOpen()){
+            if(disk[d].mounted){
                 char filename[64];
                 uint32_t filesize = disk[d].file.fileSize();
                 disk[d].file.getName(filename, 64);
