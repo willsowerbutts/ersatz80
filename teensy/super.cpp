@@ -71,9 +71,7 @@ bool supervisor_menu_key_in(unsigned char keypress)
     }else if(keypress >= 0x20){
         if(supervisor_cmd_offset < (SBUFLEN-1)){
             supervisor_cmd_buffer[supervisor_cmd_offset++] = keypress;
-            debug_boldon();
-            Serial.write(keypress);
-            debug_boldoff();
+            report("%c", keypress);
         }else{
             Serial.write(0x07); // sound the bell
         }

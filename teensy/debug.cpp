@@ -18,20 +18,19 @@ void debug_dumpmem(void *_ptr, uint16_t len)
 }
 #endif
 
-uint8_t debug_boldlevel = 0;
+bool debug_flag_user = true;
 
-void debug_boldon(void)
-{
-    if(debug_boldlevel == 0)
-        Serial.write("\x1b[1m");
-    debug_boldlevel++;
+void debug_mode_super(void){
+    if(!debug_flag_user)
+        return;
+    debug_flag_user = false;
+    Serial.write("\x1b[1m");
 }
 
-void debug_boldoff(void)
+void debug_mode_user(void)
 {
-    if(debug_boldlevel == 0)
-        Serial.write("debug_boldoff with debug_boldlevel=0");
-    debug_boldlevel--;
-    if(debug_boldlevel == 0)
-        Serial.write("\x1b[0m");
+    if(debug_flag_user)
+        return;
+    debug_flag_user = true;
+    Serial.write("\x1b[0m");
 }

@@ -52,6 +52,7 @@ uint8_t uart_read_data(uint16_t address)
 
 void uart_write_data(uint16_t address, uint8_t value)
 {
+    debug_mode_user();
     Serial.write(value);
 }
 
