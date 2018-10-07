@@ -170,7 +170,7 @@ void disk_unmount(void)
 
 void disk_seek_final_sector(void)
 {
-    disk[disk_selected].sector_number = disk[disk_selected].file.fileSize() >> disk[disk_selected].sector_size_log;
+    disk[disk_selected].sector_number = (disk[disk_selected].file.fileSize()-1) >> disk[disk_selected].sector_size_log;
 }
 
 void disk_command_write(uint16_t address, uint8_t value)
