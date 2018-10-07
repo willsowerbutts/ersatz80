@@ -152,7 +152,7 @@ float z80_clk_get_frequency(void)
     assert(false);
 }
 
-bool z80_clk_independent(void)
+bool z80_clk_is_independent(void)
 {
     switch(clk_mode){
         case CLK_FAST:
@@ -165,9 +165,14 @@ bool z80_clk_independent(void)
     assert(false);
 }
 
-bool z80_clk_stopped(void)
+bool z80_clk_is_stopped(void)
 {
     return (clk_mode == CLK_STOPPED);
+}
+
+bool z80_clk_is_supervised(void)
+{
+    return (clk_mode == CLK_SUPERVISED);
 }
 
 void z80_clk_stop(void)

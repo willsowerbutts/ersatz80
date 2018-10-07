@@ -814,14 +814,14 @@ void z80_show_regs(void)
 
     // if we're partway through an M1 cycle, allow it to complete first
     while(z80_m1_asserted()){
-        if(!z80_clk_independent())
+        if(!z80_clk_is_independent())
             z80_clock_pulse();
         handle_z80_bus(); 
     }
 
     // wait for a new M1 cycle to start
     while(!z80_m1_asserted()){
-        if(!z80_clk_independent())
+        if(!z80_clk_is_independent())
             z80_clock_pulse();
         handle_z80_bus(); 
     }
@@ -900,7 +900,7 @@ inline void z80_complete_read(uint8_t data)
     z80_set_busrq(true);
     z80_set_release_wait(true);
     while(!z80_busack_asserted())
-        if(!z80_clk_independent())
+        if(!z80_clk_is_independent())
             z80_clock_pulse();
     z80_shutdown_drive_data();
     z80_set_release_wait(false);
@@ -912,7 +912,7 @@ inline void z80_complete_write(void)
     z80_set_busrq(true);
     z80_set_release_wait(true);
     while(!z80_busack_asserted())
-        if(!z80_clk_independent())
+        if(!z80_clk_is_independent())
             z80_clock_pulse();
     z80_set_release_wait(false);
     // return with DMA capable -- caller must do z80_set_busrq(false);
@@ -962,7 +962,7 @@ void begin_dma(void)
 {
     z80_set_busrq(true);
     while(!z80_busack_asserted()){  // wait for BUSACK
-        if(!z80_clk_independent())
+        if(!z80_clk_is_independent())
             z80_clock_pulse();
         handle_z80_bus(); 
         z80_set_busrq(true); // handle_z80_bus may perform a DMA cycle so we need to assert again

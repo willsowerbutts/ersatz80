@@ -14,8 +14,9 @@ void z80_clk_set_supervised(bool supervised);
 void z80_clk_pause(void);
 void z80_clk_resume(void);
 void z80_clock_pulse(void);
-bool z80_clk_independent(void); // do we need to manually jiggle the clock line?
-bool z80_clk_stopped(void);
+bool z80_clk_is_independent(void); // do we need to manually jiggle the clock line?
+bool z80_clk_is_stopped(void);
+bool z80_clk_is_supervised(void);
 void z80_set_clk(bool level);
 const char *z80_clk_get_name(void);
 

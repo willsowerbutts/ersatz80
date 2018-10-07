@@ -320,7 +320,7 @@ void loop() {
     unsigned long now, disk_sync_due = 0;
 
     while(true){
-        if(!z80_clk_independent() && !z80_clk_stopped())
+        if(z80_clk_is_supervised())
             z80_clock_pulse();
         handle_z80_bus();
         handle_serial_input();
