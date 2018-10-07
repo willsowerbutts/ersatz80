@@ -8,7 +8,7 @@
 #include "debug.h"
 #include "super.h"
 #include "rom.h"
-#include "sdcard.h"
+#include "disk.h"
 
 #define UART_RX_FIFO_BUFFER_SIZE 128
 uint8_t uart_rx_fifo_waiting = 0;
@@ -302,7 +302,7 @@ void setup() {
            " / _ \\ '__/ __|/ _` | __|_  / _ \\| | | |\r\n|  __/ |  \\__ \\ (_| | |_ / / (_) | |_| |\r\n"
            " \\___|_|  |___/\\__,_|\\__/___\\___/ \\___/ \r\nersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", 
            F_CPU/1000000.0, F_BUS/1000000.0);
-    sdcard_init();
+    disk_init();
     mmu_setup();
     sram_setup();
     report("ersatz80: load ROM\r\n");
@@ -317,10 +317,18 @@ void setup() {
 }
 
 void loop() {
+    unsigned long now, disk_sync_due = 0;
+
     while(true){
         if(!z80_clk_independent() && !z80_clk_stopped())
             z80_clock_pulse();
         handle_z80_bus();
         handle_serial_input();
+        // we must periodically flush any written data to the SD card
+        now = millis();
+        if(now >= disk_sync_due){
+            disk_sync_due = now + 2000; // every 2 seconds
+            disk_sync();
+        }
     }
 }

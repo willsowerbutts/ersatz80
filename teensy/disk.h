@@ -1,5 +1,5 @@
-#ifndef __SDCARD_DOT_H__
-#define __SDCARD_DOT_H__
+#ifndef __DISK_DOT_H__
+#define __DISK_DOT_H__
 
 #include <Arduino.h>
 #include "SdFat.h"
@@ -7,7 +7,8 @@
 
 #define NUM_DISK_DRIVES 4 // max 16
 
-void    sdcard_init(void); 
+void    disk_init(void); 
+void    disk_sync(void);
 uint8_t disk_sector_read(uint16_t address);
 void    disk_sector_write(uint16_t address, uint8_t value);
 uint8_t disk_address_read(uint16_t address);

@@ -7,7 +7,7 @@
 #include "super.h"
 #include "debug.h"
 #include "rom.h"
-#include "sdcard.h"
+#include "disk.h"
 
 #define SBUFLEN 80
 #define SMAXARG 10

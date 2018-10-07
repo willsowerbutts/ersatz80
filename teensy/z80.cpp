@@ -3,7 +3,7 @@
 #include "debug.h"
 #include "clock.h"
 #include "z80.h"
-#include "sdcard.h"
+#include "disk.h"
 #include "disasm.h"
 
 uint16_t user_led = 0x000; // value to show on user-controlled LEDs

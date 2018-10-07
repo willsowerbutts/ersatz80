@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include "debug.h"
-#include "sdcard.h"
+#include "disk.h"
 
 #define MAX_SECTOR_SIZE 1024
 SdFatSdioEX sdcard;
@@ -151,8 +151,9 @@ void disk_mount(void)
     bool okay;
     char filename[64];
     // we need to read our params from the DMA address. being lazy for now.
+    // NOTE *we* need to ensure that no two disks have the same image mounted concurrently!
     sprintf(filename, "test%d.dsk", disk_selected);
-    okay = disk[disk_selected].file.open(&sdcard, filename, FILE_WRITE);
+    okay = disk[disk_selected].file.open(&sdcard, filename, O_RDWR | O_CREAT);
     disk[disk_selected].sector_number = 0;
     disk[disk_selected].error = !okay;
     disk[disk_selected].mounted = okay;
@@ -203,7 +204,11 @@ void disk_command_write(uint16_t address, uint8_t value)
         case 0x24: // seek to final sector (useful to determine device size)
             disk_seek_final_sector();
             break;
-        case 0x80: // clear the error flag - except unmounted drives, which always indicate error
+        case 0x25: // perform sync operation
+            disk_sync(); // this syncs all the drives, but the command guarantees only syncing the selected drive
+            break;
+        case 0x80: // clear error flag
+            // unmounted drives always indicate error
             disk[disk_selected].error = !disk[disk_selected].mounted;
             break;
         default:
@@ -211,7 +216,14 @@ void disk_command_write(uint16_t address, uint8_t value)
     }
 }
 
-void sdcard_init() {
+// this is called periodically from the main loop
+void disk_sync(void){
+    for(int d=0; d<NUM_DISK_DRIVES; d++)
+        if(disk[d].mounted)
+            disk[d].file.sync();
+}
+
+void disk_init(void) {
     for(int d=0; d<NUM_DISK_DRIVES; d++) {
         disk[d].sector_number = 0;
         disk[d].dma_address = 0;
