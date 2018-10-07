@@ -28,6 +28,8 @@ void super_loadfile(int argc, char *argv[]);
 void super_trace(int argc, char *argv[]);
 void super_lsdir(int argc, char *argv[]);
 void super_disk(int argc, char *argv[]);
+void super_sync(int argc, char *argv[]);
+void super_format(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "quit",       NULL            },
@@ -43,6 +45,9 @@ const cmd_entry_t cmd_table[] = {
     { "ls",         &super_lsdir    },
     { "dir",        &super_lsdir    },
     { "disk",       &super_disk     },
+    { "disks",      &super_disk     },
+    { "format",     &super_format   },
+    { "sync",       &super_sync     },
 
     // list terminator:
     { NULL,         NULL            }
@@ -166,7 +171,7 @@ void super_clk(int argc, char *argv[])
                     f *= 1000000000;
                     break;
                 default:
-                    report("error: unrecognised unit suffix?");
+                    report("error: unrecognised unit suffix?\r\n");
                     return;
             }
         }
@@ -220,9 +225,9 @@ void super_reset(int argc, char *argv[])
 void super_loadfile(int argc, char *argv[])
 {
     if(argc < 3){
-        report("error: syntax: loadfile [filename] [address] [start address]\r\n");
-        report("note: [filename] must be 8.3 format\r\n");
-        report("note: address and start address in hex\r\n");
+        report("error: syntax: loadfile [filename] [address] [start address]\r\n"
+               "note: [filename] must be 8.3 format\r\n"
+               "note: address and start address in hex\r\n");
     }else {
       long int address = strtol(argv[1], NULL, 16);
       long int start_address = strtol(argv[2], NULL, 16);
@@ -249,14 +254,19 @@ void super_lsdir(int argc, char *argv[])
     // TODO: improve this
 }
 
+void super_sync(int argc, char *argv[])
+{
+    disk_sync();
+}
+
 void super_disk(int argc, char *argv[])
 {
     if(argc == 0){
         for(int d=0; d<NUM_DISK_DRIVES; d++){
             report("Disk %d: ", d);
             if(disk[d].mounted){
-                char filename[64];
-                disk[d].file.getName(filename, 64);
+                char filename[MAX_FILENAME_LENGTH];
+                disk[d].file.getName(filename, MAX_FILENAME_LENGTH);
                 report("filename \"%s\", %.3fMB, %d x %d byte sectors, %s\r\n",
                         filename,
                         (float)disk[d].size_bytes / (1024.0 * 1024.0),
@@ -268,5 +278,51 @@ void super_disk(int argc, char *argv[])
             }
         }
     }
-    // TODO: support for mount, unmount, format, sync etc
+    // TODO: support for mount, unmount etc
+}
+
+void super_format(int argc, char *argv[])
+{
+    if(argc != 2){
+        report("error: syntax: format [filename] [size]\r\n"
+               "note: size is in bytes; add K suffix for KB, M suffix for MB, G suffix for GB.\r\n");
+    }else{
+        float size = 0;
+        char *endptr = NULL;
+        uint32_t sb;
+        size = strtof(argv[1], &endptr);
+        if(size == 0 && endptr == argv[0]){
+            report("error: bad size\r\n");
+            return;
+        }else{
+            switch(*endptr){
+                case 0:
+                    break;
+                case 'g':
+                case 'G':
+                    size *= 1024;
+                    // fall through
+                case 'm':
+                case 'M':
+                    size *= 1024;
+                    // fall through
+                case 'k':
+                case 'K':
+                    size *= 1024;
+                    break;
+                default:
+                    report("error: unrecognised unit suffix?\r\n");
+                    return;
+            }
+        }
+        if(size > (2.0f * 1024.0 * 1024.0 * 1024.0)){
+            report("error: maximum supported disk size is 2GB\r\n");
+            return;
+        }
+        sb = (uint32_t)size;
+        if(disk_format(argv[0], sb))
+            report("disk: successfully formatted \"%s\" (%d bytes)\r\n", argv[0], sb);
+        else
+            report("disk: failed to format \"%s\" (%d bytes)\r\n", argv[0], sb);
+    }
 }

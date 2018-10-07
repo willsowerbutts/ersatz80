@@ -134,14 +134,14 @@ void disk_transfer(bool write)
         if(write){
             z80_memory_read_block(disk[disk_selected].dma_address, iobuf, bytes);
             r = disk[disk_selected].file.write(iobuf, bytes);
-            report("disk %d: write %d bytes = %d\r\n", disk_selected, bytes, r);
+            //report("disk %d: write %d bytes = %d\r\n", disk_selected, bytes, r);
             if(r < bytes){
                 disk_error(opname, "file write failed");
                 remain = 0; // no more iterations
             }
         }else{
             r = disk[disk_selected].file.read(iobuf, bytes);
-            report("disk %d: read %d bytes = %d\r\n", disk_selected, bytes, r);
+            // report("disk %d: read %d bytes = %d\r\n", disk_selected, bytes, r);
             if(r < 0){
                 disk_error(opname, "file read failed");
                 remain = 0; // no more iterations
@@ -162,13 +162,31 @@ void disk_transfer(bool write)
     end_dma();
 }
 
+void disk_unmount(void)
+{
+    disk[disk_selected].file.sync();
+    disk[disk_selected].file.close();
+    disk[disk_selected].mounted = false;
+    disk[disk_selected].writable = false;
+    disk[disk_selected].error = true; // error=true always for unmounted drives
+    disk[disk_selected].size_bytes = 0;
+}
+
 void disk_mount(void)
 {
     bool okay;
     char filename[64];
-    // we need to read our params from the DMA address. being lazy for now.
-    // NOTE *we* need to ensure that no two disks have the same image mounted concurrently!
-    sprintf(filename, "test%d.dsk", disk_selected);
+
+    sprintf(filename, "test%d.dsk", disk_selected); // we need to read our params from the DMA address. being lazy for now.
+
+    if(disk[disk_selected].mounted)
+        disk_unmount();
+
+    if(disk_file_mounted(filename)){
+        report("disk: cannot mount file \"%s\": already mounted.\r\n", filename);
+        return;
+    }
+
     okay = disk[disk_selected].file.open(&sdcard, filename, O_RDWR | O_CREAT);
     disk[disk_selected].sector_number = 0;
     disk[disk_selected].error = !okay;
@@ -178,15 +196,6 @@ void disk_mount(void)
         disk[disk_selected].size_bytes = disk[disk_selected].file.fileSize();
     else
         disk[disk_selected].size_bytes = 0;
-}
-
-void disk_unmount(void)
-{
-    disk[disk_selected].file.close();
-    disk[disk_selected].mounted = false;
-    disk[disk_selected].writable = false;
-    disk[disk_selected].error = true; // error=true always for unmounted drives
-    disk[disk_selected].size_bytes = 0;
 }
 
 void disk_seek_final_sector(void)
@@ -244,6 +253,22 @@ void disk_sync(void){
             disk[d].file.sync();
 }
 
+bool disk_file_mounted(const char *new_filename)
+{
+    char filename[MAX_FILENAME_LENGTH];
+
+    for(int d=0; d<NUM_DISK_DRIVES; d++){
+        if(disk[d].mounted){
+            disk[d].file.getName(filename, MAX_FILENAME_LENGTH);
+            // hmm is this really adequate? what about .., multiple path separators, 8.3 vs long file name etc?
+            if(strcasecmp(new_filename, filename) == 0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
 void disk_init(void) {
     for(int d=0; d<NUM_DISK_DRIVES; d++) {
         disk[d].sector_number = 0;
@@ -281,4 +306,58 @@ void disk_init(void) {
     }
 
     report(" %d blocks (%.1fGB) FAT%d\r\n", card->cardSize(), (float)card->cardSize() / 2097152.0, sdcard.fatType());
+}
+
+#define FORMAT_BUFFER_SIZE 4096
+#define FORMAT_BYTE_VALUE 0xE5
+bool disk_format(const char *filename, uint32_t bytes)
+{
+    SdBaseFile file;
+    unsigned long timer;
+    uint32_t progress, done, last_prog = 0;
+    int xfer;
+    char buffer[FORMAT_BUFFER_SIZE];
+    bool result = true;
+
+    if(disk_file_mounted(filename)){
+        report("disk: cannot format a mounted disk\r\n");
+        return false;
+    }
+
+    // could check if file exists and if so refuse to proceed?
+    
+    report("disk: format \"%s\" (%d bytes)  [", filename, bytes);
+    progress = bytes / 16;
+
+    timer = micros();
+    if(!file.open(&sdcard, filename, O_WRONLY | O_CREAT | O_TRUNC)){
+        report("disk: failed to open file \"%s\"\r\n", filename);
+        return false;
+    }
+
+    memset(buffer, FORMAT_BYTE_VALUE, FORMAT_BUFFER_SIZE);
+    done = 0;
+    while(bytes > 0){
+        xfer = (bytes > FORMAT_BUFFER_SIZE) ? FORMAT_BUFFER_SIZE : bytes;
+        if(file.write(buffer, xfer) != xfer){
+            report("disk: write() failed during format\r\n");
+            bytes = 0; // abort
+            result = false;
+        }else{
+            bytes -= xfer;
+            done += xfer;
+        }
+        if(done / progress != last_prog){
+            last_prog = done / progress;
+            report("=");
+        }
+    }
+
+    file.sync();
+    file.close();
+
+    timer = micros() - timer;
+    report("]  %.1fMB/sec\r\n", ((float)done / (1024.0*1024.0)) / ((float)timer / 1000000.0f));
+
+    return result;
 }

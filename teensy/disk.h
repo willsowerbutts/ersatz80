@@ -5,10 +5,13 @@
 #include "SdFat.h"
 #include "z80.h"
 
-#define NUM_DISK_DRIVES 4 // max 16
+#define NUM_DISK_DRIVES 4       // max 16
+#define MAX_FILENAME_LENGTH 64  // really this is a file path ie directory plus filename
 
 void    disk_init(void); 
 void    disk_sync(void);
+bool    disk_file_mounted(const char *filename);
+bool    disk_format(const char *filename, uint32_t bytes);
 uint8_t disk_sector_read(uint16_t address);
 void    disk_sector_write(uint16_t address, uint8_t value);
 uint8_t disk_address_read(uint16_t address);
