@@ -85,58 +85,74 @@ uint8_t disk_status_read(uint16_t address)
            (disk[disk_selected].error ? 0x80 : 0x00);               // bit 7: error flag
 }
 
-void disk_transfer_read(void)
+void disk_error(const char *opname, const char *msg)
 {
-    uint8_t iobuf[MAX_SECTOR_SIZE];
-    int remain, count, maxsec, bytes, r;
-
-    begin_dma();
-
-    maxsec = MAX_SECTOR_SIZE >> disk[disk_selected].sector_size_log;
-    disk[disk_selected].file.seekSet(disk[disk_selected].sector_number << disk[disk_selected].sector_size_log);
-    remain = disk[disk_selected].sector_count;
-    while(remain){
-        count = (remain > maxsec) ? maxsec : remain;
-        bytes = count << disk[disk_selected].sector_size_log;
-        r = disk[disk_selected].file.read(iobuf, bytes);
-        if(r < 0){
-            disk[disk_selected].error = true; // report error condition
-            r = 0; // indicate 0 bytes in sector buffer are valid for memset
-        }
-        if(r < bytes)
-            memset(&iobuf[r], 0, bytes - r); // wipe unread portion of sector buffer
-        z80_memory_write_block(disk[disk_selected].dma_address, iobuf, bytes);
-        // advance our pointers
-        disk[disk_selected].dma_address += bytes;
-        disk[disk_selected].sector_number += count;
-        remain -= count;
-    }
-
-    end_dma();
+    report("disk %d %s (%d-byte sector 0x%x, count %d): %s\r\n",
+            disk_selected, opname, 
+            1 << disk[disk_selected].sector_size_log,
+            disk[disk_selected].sector_number,
+            disk[disk_selected].sector_count,
+            msg);
+    disk[disk_selected].error = true;
 }
 
-void disk_transfer_write(void)
+void disk_transfer(bool write)
 {
     uint8_t iobuf[MAX_SECTOR_SIZE];
+    uint32_t offset;
     int remain, count, maxsec, bytes, r;
+    const char *opname = write ? "write" : "read";
 
-    if(!disk[disk_selected].writable){
-        disk[disk_selected].error = true;
+    if(!disk[disk_selected].mounted){
+        disk_error(opname, "access to unmounted disk");
+        return;
+    }
+
+    if(write && !disk[disk_selected].writable){
+        disk_error(opname, "write to read-only disk");
+        return;
+    }
+
+    offset = disk[disk_selected].sector_number << disk[disk_selected].sector_size_log;
+    if(offset + (disk[disk_selected].sector_count << disk[disk_selected].sector_size_log) > disk[disk_selected].size_bytes){
+        disk_error(opname, "access beyond end of disk");
+        return;
+    }
+
+    if(!disk[disk_selected].file.seekSet(offset)){
+        disk_error(opname, "file seek failed");
         return;
     }
 
     begin_dma();
 
     maxsec = MAX_SECTOR_SIZE >> disk[disk_selected].sector_size_log;
-    disk[disk_selected].file.seekSet(disk[disk_selected].sector_number << disk[disk_selected].sector_size_log);
     remain = disk[disk_selected].sector_count;
     while(remain){
         count = (remain > maxsec) ? maxsec : remain;
         bytes = count << disk[disk_selected].sector_size_log;
-        z80_memory_read_block(disk[disk_selected].dma_address, iobuf, bytes);
-        r = disk[disk_selected].file.write(iobuf, bytes);
-        if(r < bytes)
-            disk[disk_selected].error = true; // report error condition
+        if(write){
+            z80_memory_read_block(disk[disk_selected].dma_address, iobuf, bytes);
+            r = disk[disk_selected].file.write(iobuf, bytes);
+            report("disk %d: write %d bytes = %d\r\n", disk_selected, bytes, r);
+            if(r < bytes){
+                disk_error(opname, "file write failed");
+                remain = 0; // no more iterations
+            }
+        }else{
+            r = disk[disk_selected].file.read(iobuf, bytes);
+            report("disk %d: read %d bytes = %d\r\n", disk_selected, bytes, r);
+            if(r < 0){
+                disk_error(opname, "file read failed");
+                remain = 0; // no more iterations
+                r = 0; // indicate 0 bytes in sector buffer are valid for memset
+            }
+            if(r < bytes){
+                report("disk %d: WARNING padding incomplete read %d/%d?\r\n", disk_selected, r, bytes);
+                memset(&iobuf[r], 0, bytes - r); // wipe unread portion of sector buffer
+            }
+            z80_memory_write_block(disk[disk_selected].dma_address, iobuf, bytes);
+        }
         // advance our pointers
         disk[disk_selected].dma_address += bytes;
         disk[disk_selected].sector_number += count;
@@ -158,6 +174,10 @@ void disk_mount(void)
     disk[disk_selected].error = !okay;
     disk[disk_selected].mounted = okay;
     disk[disk_selected].writable = okay;
+    if(okay)
+        disk[disk_selected].size_bytes = disk[disk_selected].file.fileSize();
+    else
+        disk[disk_selected].size_bytes = 0;
 }
 
 void disk_unmount(void)
@@ -166,11 +186,12 @@ void disk_unmount(void)
     disk[disk_selected].mounted = false;
     disk[disk_selected].writable = false;
     disk[disk_selected].error = true; // error=true always for unmounted drives
+    disk[disk_selected].size_bytes = 0;
 }
 
 void disk_seek_final_sector(void)
 {
-    disk[disk_selected].sector_number = (disk[disk_selected].file.fileSize()-1) >> disk[disk_selected].sector_size_log;
+    disk[disk_selected].sector_number = (disk[disk_selected].size_bytes-1) >> disk[disk_selected].sector_size_log;
 }
 
 void disk_command_write(uint16_t address, uint8_t value)
@@ -190,10 +211,10 @@ void disk_command_write(uint16_t address, uint8_t value)
             disk[disk_selected].sector_size_log = value - 9; // 0x10 ... 0x13 -> 7 ... 10
             break;
         case 0x20: // perform read operation
-            disk_transfer_read();
+            disk_transfer(false);
             break;
         case 0x21: // perform write operation
-            disk_transfer_write();
+            disk_transfer(true);
             break;
         case 0x22: // perform mount operation
             disk_mount();
@@ -229,6 +250,7 @@ void disk_init(void) {
         disk[d].dma_address = 0;
         disk[d].sector_size_log = 9; // 2^9 = 512 bytes
         disk[d].sector_count = 1;
+        disk[d].size_bytes = 0;
         disk[d].error = true;       // error=true always for unmounted drives
         disk[d].writable = false;
         disk[d].mounted = false;

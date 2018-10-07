@@ -256,12 +256,11 @@ void super_disk(int argc, char *argv[])
             report("Disk %d: ", d);
             if(disk[d].mounted){
                 char filename[64];
-                uint32_t filesize = disk[d].file.fileSize();
                 disk[d].file.getName(filename, 64);
                 report("filename \"%s\", %.3fMB, %d x %d byte sectors, %s\r\n",
                         filename,
-                        (float)filesize / (1024.0 * 1024.0),
-                        filesize >> disk[d].sector_size_log,
+                        (float)disk[d].size_bytes / (1024.0 * 1024.0),
+                        disk[d].size_bytes >> disk[d].sector_size_log,
                         1 << disk[d].sector_size_log,
                         disk[d].writable ? "read-write" : "read-only");
             }else{
@@ -269,5 +268,5 @@ void super_disk(int argc, char *argv[])
             }
         }
     }
-    // TODO: support for mount/unmount etc
+    // TODO: support for mount, unmount, format, sync etc
 }

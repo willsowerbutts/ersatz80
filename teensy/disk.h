@@ -27,6 +27,7 @@ typedef struct {
     SdBaseFile file;
     uint32_t   sector_number;
     uint32_t   dma_address;
+    uint32_t   size_bytes;
     uint8_t    sector_size_log;  // stored as power of 2; 7=128, 8=256, 9=512, 10=1024.
     uint8_t    sector_count;
     bool       mounted;
