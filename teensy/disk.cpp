@@ -148,7 +148,7 @@ void disk_transfer(bool write)
                 r = 0; // indicate 0 bytes in sector buffer are valid for memset
             }
             if(r < bytes){
-                report("disk %d: WARNING padding incomplete read %d/%d?\r\n", disk_selected, r, bytes);
+                report("disk %d: WARNING: padding incomplete read %d/%d?\r\n", disk_selected, r, bytes);
                 memset(&iobuf[r], 0, bytes - r); // wipe unread portion of sector buffer
             }
             z80_memory_write_block(disk[disk_selected].dma_address, iobuf, bytes);
@@ -183,7 +183,7 @@ void disk_mount(void)
         disk_unmount();
 
     if(disk_file_mounted(filename)){
-        report("disk: cannot mount file \"%s\": already mounted.\r\n", filename);
+        report("disk %d: cannot mount file \"%s\": already mounted.\r\n", disk_selected, filename);
         return;
     }
 
@@ -192,15 +192,20 @@ void disk_mount(void)
     disk[disk_selected].error = !okay;
     disk[disk_selected].mounted = okay;
     disk[disk_selected].writable = okay;
-    if(okay)
+    if(okay){
         disk[disk_selected].size_bytes = disk[disk_selected].file.fileSize();
-    else
+        if(disk[disk_selected].size_bytes & 0x3FF)
+            report("disk %d: WARNING: size of \"%s\" is not a multiple of 1024\r\n", disk_selected, filename);
+    }else
         disk[disk_selected].size_bytes = 0;
 }
 
-void disk_seek_final_sector(void)
+void disk_seek_final_sector(bool exact_device_size)
 {
-    disk[disk_selected].sector_number = (disk[disk_selected].size_bytes-1) >> disk[disk_selected].sector_size_log;
+    // we seek to either:
+    //  - size of the device, ie one sector past the last usable sector (exact_device_size=true)
+    //  - the last usable sector, ie sector (n-1) for an n sector device (exact_device_size=false)
+    disk[disk_selected].sector_number = (disk[disk_selected].size_bytes >> disk[disk_selected].sector_size_log) - (exact_device_size ? 0 : 1);
 }
 
 void disk_command_write(uint16_t address, uint8_t value)
@@ -231,10 +236,13 @@ void disk_command_write(uint16_t address, uint8_t value)
         case 0x23: // perform unmount operation
             disk_unmount();
             break;
-        case 0x24: // seek to final sector (useful to determine device size)
-            disk_seek_final_sector();
+        case 0x24: // seek to final sector
+            disk_seek_final_sector(false);
             break;
-        case 0x25: // perform sync operation
+        case 0x25: // set sector number to device sector count (useful to read out exact device size)
+            disk_seek_final_sector(true);
+            break;
+        case 0x26: // perform sync operation
             disk_sync(); // this syncs all the drives, but the command guarantees only syncing the selected drive
             break;
         case 0x80: // clear error flag
@@ -326,7 +334,7 @@ bool disk_format(const char *filename, uint32_t bytes)
 
     // could check if file exists and if so refuse to proceed?
     
-    report("disk: format \"%s\" (%d bytes)  [", filename, bytes);
+    report("disk: format \"%s\" (%d bytes)  [                ]\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08", filename, bytes);
     progress = bytes / 16;
 
     timer = micros();

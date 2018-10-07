@@ -318,6 +318,8 @@ void super_format(int argc, char *argv[])
             return;
         }
         sb = (uint32_t)size;
+        if(sb & 0x3FF)
+            report("disk: WARNING: size is not a multiple of 1024 (good luck)\r\n");
         if(disk_format(argv[0], sb))
             report("disk: successfully formatted \"%s\" (%d bytes)\r\n", argv[0], sb);
         else
