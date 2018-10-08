@@ -310,7 +310,7 @@ void disk_init(void) {
             report("SDHC");
             break;
         default:
-            report("(unknown card type)");
+            report("(unknown card type %d)", card->type());
     }
 
     report(" %d blocks (%.1fGB) FAT%d\r\n", card->cardSize(), (float)card->cardSize() / 2097152.0, sdcard.fatType());
@@ -318,11 +318,12 @@ void disk_init(void) {
 
 #define FORMAT_BUFFER_SIZE 4096
 #define FORMAT_BYTE_VALUE 0xE5
+#define PROGRESS_BAR_LENGTH 40
 bool disk_format(const char *filename, uint32_t bytes)
 {
     SdBaseFile file;
     unsigned long timer;
-    uint32_t progress, done, last_prog = 0;
+    uint32_t progress_unit, done, last_prog = 0;
     int xfer;
     char buffer[FORMAT_BUFFER_SIZE];
     bool result = true;
@@ -334,29 +335,37 @@ bool disk_format(const char *filename, uint32_t bytes)
 
     // could check if file exists and if so refuse to proceed?
     
-    report("disk: format \"%s\" (%d bytes)  [                ]\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08\x08", filename, bytes);
-    progress = bytes / 16;
+    report("disk: formatting \"%s\" (%d bytes)", filename, bytes);
 
-    timer = micros();
     if(!file.open(&sdcard, filename, O_WRONLY | O_CREAT | O_TRUNC)){
-        report("disk: failed to open file \"%s\"\r\n", filename);
+        report(": failed to open file\r\n");
         return false;
     }
 
+    // everyone loves a progres bar
+    progress_unit = bytes / PROGRESS_BAR_LENGTH;
+    report("\r\ndisk: formatting [");
+    for(xfer=0; xfer<PROGRESS_BAR_LENGTH; xfer++)
+        report(" ");
+    report("]");
+    for(xfer=0; xfer<1+PROGRESS_BAR_LENGTH; xfer++)
+        report("\x08");
+
+    timer = micros();
     memset(buffer, FORMAT_BYTE_VALUE, FORMAT_BUFFER_SIZE);
     done = 0;
     while(bytes > 0){
         xfer = (bytes > FORMAT_BUFFER_SIZE) ? FORMAT_BUFFER_SIZE : bytes;
         if(file.write(buffer, xfer) != xfer){
-            report("disk: write() failed during format\r\n");
+            report("\r\ndisk: write() failed during format\r\n");
             bytes = 0; // abort
             result = false;
         }else{
             bytes -= xfer;
             done += xfer;
         }
-        if(done / progress != last_prog){
-            last_prog = done / progress;
+        if(done / progress_unit != last_prog){
+            last_prog = done / progress_unit;
             report("=");
         }
     }
@@ -365,7 +374,7 @@ bool disk_format(const char *filename, uint32_t bytes)
     file.close();
 
     timer = micros() - timer;
-    report("]  %.1fMB/sec\r\n", ((float)done / (1024.0*1024.0)) / ((float)timer / 1000000.0f));
+    report("] %.1fMB/sec\r\n", ((float)done / (1024.0*1024.0)) / ((float)timer / 1000000.0f));
 
     return result;
 }
