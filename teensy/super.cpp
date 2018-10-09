@@ -33,8 +33,10 @@ void super_mv(int argc, char *argv[]);
 void super_disk(int argc, char *argv[]);
 void super_sync(int argc, char *argv[]);
 void super_format(int argc, char *argv[]);
+void super_help(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
+    { "help",       &super_help     }, // despite the name, not actually super helpful
     { "quit",       NULL            },
     { "exit",       NULL            },
     { "q",          NULL            },
@@ -120,9 +122,6 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
 
     if(argc == 0)
         return true;
-
-    if(!strcasecmp(argv[0], "quit") || !strcasecmp(argv[0], "exit"))
-        return false;
 
     for(const cmd_entry_t *cmd=cmd_table; cmd->name; cmd++){
         if(!strcasecmp(argv[0], cmd->name)){
@@ -366,4 +365,17 @@ void super_mv(int argc, char *argv[])
         if(!disk_mv(argv[0], argv[1]))
             report("error: cp failed\r\n");
     }
+}
+
+void super_help(int argc, char *argv[])
+{
+    void (*prev_func)(int argc, char *argv[]) = NULL;
+
+    report("commands:");
+    for(const cmd_entry_t *cmd=cmd_table; cmd->name; cmd++){
+        if(cmd->function != prev_func)
+            report(" %s", cmd->name);
+        prev_func = cmd->function;
+    }
+    report("\r\n");
 }
