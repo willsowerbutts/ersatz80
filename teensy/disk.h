@@ -10,8 +10,7 @@
 
 void    disk_init(void); 
 void    disk_sync(void);
-bool    disk_file_mounted(const char *filename);
-bool    disk_format(const char *filename, uint32_t bytes);
+bool    disk_is_file_mounted(const char *filename);
 uint8_t disk_sector_read(uint16_t address);
 void    disk_sector_write(uint16_t address, uint8_t value);
 uint8_t disk_address_read(uint16_t address);
@@ -22,6 +21,10 @@ uint8_t disk_status_read(uint16_t address);
 void    disk_command_write(uint16_t address, uint8_t value);
 uint8_t disk_reserved_read(uint16_t address);
 void    disk_reserved_write(uint16_t address, uint8_t value);
+bool    disk_format(const char *filename, uint32_t bytes);
+bool    disk_rm(const char *victim);
+bool    disk_cp(const char *source, const char *dest);
+bool    disk_mv(const char *source, const char *dest);
 
 // WRS: can also try using SdFatSdio here -- it may be slower? have not benchmarked.
 extern SdFatSdioEX sdcard;

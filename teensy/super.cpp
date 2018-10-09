@@ -26,7 +26,10 @@ void super_clk(int argc, char *argv[]);
 void super_loadrom(int argc, char *argv[]);
 void super_loadfile(int argc, char *argv[]);
 void super_trace(int argc, char *argv[]);
-void super_lsdir(int argc, char *argv[]);
+void super_ls(int argc, char *argv[]);
+void super_rm(int argc, char *argv[]);
+void super_cp(int argc, char *argv[]);
+void super_mv(int argc, char *argv[]);
 void super_disk(int argc, char *argv[]);
 void super_sync(int argc, char *argv[]);
 void super_format(int argc, char *argv[]);
@@ -42,8 +45,15 @@ const cmd_entry_t cmd_table[] = {
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },
     { "trace",      &super_trace    },
-    { "ls",         &super_lsdir    },
-    { "dir",        &super_lsdir    },
+    { "ls",         &super_ls       },
+    { "dir",        &super_ls       },
+    { "mv",         &super_mv       },
+    { "ren",        &super_mv       },
+    { "rename",     &super_mv       },
+    { "rm",         &super_rm       },
+    { "del",        &super_rm       },
+    { "cp",         &super_cp       },
+    { "copy",       &super_cp       },
     { "disk",       &super_disk     },
     { "disks",      &super_disk     },
     { "format",     &super_format   },
@@ -246,17 +256,6 @@ void super_trace(int argc, char *argv[])
     }
 }
 
-void super_lsdir(int argc, char *argv[])
-{
-    sdcard.ls(LS_DATE | LS_SIZE | LS_R);
-    // TODO: improve this
-}
-
-void super_sync(int argc, char *argv[])
-{
-    disk_sync();
-}
-
 void super_disk(int argc, char *argv[])
 {
     if(argc == 0){
@@ -277,6 +276,17 @@ void super_disk(int argc, char *argv[])
         }
     }
     // TODO: support for mount, unmount etc
+}
+
+void super_ls(int argc, char *argv[])
+{
+    sdcard.ls(LS_DATE | LS_SIZE | LS_R);
+    // TODO: improve this!
+}
+
+void super_sync(int argc, char *argv[])
+{
+    disk_sync();
 }
 
 void super_format(int argc, char *argv[])
@@ -324,5 +334,36 @@ void super_format(int argc, char *argv[])
             report("disk: successfully formatted \"%s\" (%d bytes)\r\n", argv[0], sb);
         else
             report("disk: failed to format \"%s\" (%d bytes)\r\n", argv[0], sb);
+    }
+}
+
+void super_rm(int argc, char *argv[])
+{
+    if(argc != 1){
+        report("error: syntax: rm [filename]\r\n");
+    }else{
+        if(!disk_rm(argv[0]))
+            report("error: rm failed\r\n");
+    }
+}
+
+void super_cp(int argc, char *argv[])
+{
+    if(argc != 2){
+        report("error: syntax: cp [source] [target]\r\n");
+    }else{
+        if(!disk_cp(argv[0], argv[1]))
+            report("error: cp failed\r\n");
+    }
+}
+
+
+void super_mv(int argc, char *argv[])
+{
+    if(argc != 2){
+        report("error: syntax: mv [source] [target]\r\n");
+    }else{
+        if(!disk_mv(argv[0], argv[1]))
+            report("error: cp failed\r\n");
     }
 }

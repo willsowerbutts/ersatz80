@@ -182,7 +182,7 @@ void disk_mount(void)
     if(disk[disk_selected].mounted)
         disk_unmount();
 
-    if(disk_file_mounted(filename)){
+    if(disk_is_file_mounted(filename)){
         report("disk %d: cannot mount file \"%s\": already mounted.\r\n", disk_selected, filename);
         return;
     }
@@ -261,7 +261,7 @@ void disk_sync(void){
             disk[d].file.sync();
 }
 
-bool disk_file_mounted(const char *new_filename)
+bool disk_is_file_mounted(const char *new_filename)
 {
     char filename[MAX_FILENAME_LENGTH];
 
@@ -316,20 +316,46 @@ void disk_init(void) {
     report(" %d blocks (%.1fGB) FAT%d\r\n", card->cardSize(), (float)card->cardSize() / 2097152.0, sdcard.fatType());
 }
 
-#define FORMAT_BUFFER_SIZE 4096
-#define FORMAT_BYTE_VALUE 0xE5
 #define PROGRESS_BAR_LENGTH 40
+void disk_progress_bar(uint32_t total, uint32_t done)
+{
+    static uint32_t curprog;
+    uint32_t i, prog;
+
+    if(total == 0 && done == 0xFFFFFFFF){
+        // initialise
+        curprog = 0;
+        report("[");
+        for(i=0; i<PROGRESS_BAR_LENGTH; i++)
+            report(" ");
+        report("]");
+        for(i=0; i<1+PROGRESS_BAR_LENGTH; i++)
+            report("\x08");
+    }else{
+        // show progress
+        i = total / PROGRESS_BAR_LENGTH;
+        if(i==0)
+            i = 1;
+        prog = done / i;
+        for(i=0; i<(prog-curprog); i++)
+            report("=");
+        curprog = prog;
+    }
+}
+
+#define DISKOP_BUFFER_SIZE 4096
+#define FORMAT_BYTE_VALUE 0xE5
 bool disk_format(const char *filename, uint32_t bytes)
 {
     SdBaseFile file;
     unsigned long timer;
-    uint32_t progress_unit, done, last_prog = 0;
+    uint32_t done;
     int xfer;
-    char buffer[FORMAT_BUFFER_SIZE];
+    char buffer[DISKOP_BUFFER_SIZE];
     bool result = true;
 
-    if(disk_file_mounted(filename)){
-        report("disk: cannot format a mounted disk\r\n");
+    if(disk_is_file_mounted(filename)){
+        report("disk: cannot format a mounted file\r\n");
         return false;
     }
 
@@ -342,39 +368,116 @@ bool disk_format(const char *filename, uint32_t bytes)
         return false;
     }
 
-    // everyone loves a progres bar
-    progress_unit = bytes / PROGRESS_BAR_LENGTH;
-    report("\r\ndisk: formatting [");
-    for(xfer=0; xfer<PROGRESS_BAR_LENGTH; xfer++)
-        report(" ");
-    report("]");
-    for(xfer=0; xfer<1+PROGRESS_BAR_LENGTH; xfer++)
-        report("\x08");
+    // everyone loves a good progres bar
+    report("\r\ndisk: formatting ");
+    disk_progress_bar(0, 0xFFFFFFFF); // init progress bar
 
     timer = micros();
-    memset(buffer, FORMAT_BYTE_VALUE, FORMAT_BUFFER_SIZE);
+    memset(buffer, FORMAT_BYTE_VALUE, DISKOP_BUFFER_SIZE);
     done = 0;
-    while(bytes > 0){
-        xfer = (bytes > FORMAT_BUFFER_SIZE) ? FORMAT_BUFFER_SIZE : bytes;
+    while(done < bytes){
+        xfer = ((bytes - done) > DISKOP_BUFFER_SIZE) ? DISKOP_BUFFER_SIZE : (bytes - done);
         if(file.write(buffer, xfer) != xfer){
             report("\r\ndisk: write() failed during format\r\n");
-            bytes = 0; // abort
             result = false;
+            break;
         }else{
-            bytes -= xfer;
             done += xfer;
-        }
-        if(done / progress_unit != last_prog){
-            last_prog = done / progress_unit;
-            report("=");
+            disk_progress_bar(bytes, done);
         }
     }
 
     file.sync();
-    file.close();
+    if(result){
+        file.close();
+        timer = micros() - timer;
+        report("] %.1fMB/sec\r\n", ((float)done / (1024.0*1024.0)) / ((float)timer / 1000000.0f));
+    }else{
+        file.remove();
+    }
 
-    timer = micros() - timer;
-    report("] %.1fMB/sec\r\n", ((float)done / (1024.0*1024.0)) / ((float)timer / 1000000.0f));
+    return result;
+}
+
+bool disk_rm(const char *victim)
+{
+    SdBaseFile file;
+
+    if(disk_is_file_mounted(victim)){
+        report("disk: cannot remove a mounted file\r\n");
+        return false;
+    }
+
+    return sdcard.remove(victim);
+}
+
+bool disk_mv(const char *source, const char *dest)
+{
+    if(disk_is_file_mounted(source)){
+        report("disk: cannot rename a mounted file\r\n");
+        return false;
+    }
+
+    if(strcasecmp(source, dest) == 0)
+        return false;
+
+    return sdcard.rename(source, dest);
+}
+
+bool disk_cp(const char *source, const char *dest)
+{
+    SdBaseFile s, d;
+    bool result = true;
+    int rbytes, wbytes;
+    uint32_t filesize, done = 0;
+    char buffer[DISKOP_BUFFER_SIZE];
+
+    if(disk_is_file_mounted(source) || disk_is_file_mounted(dest)){
+        // is this true? maybe we could read from the handle we have open already?
+        report("disk: cannot copy a mounted file\r\n");
+        return false;
+    }
+
+    if(strcasecmp(source, dest) == 0)
+        return false;
+
+    if(!s.open(&sdcard, source, O_RDONLY))
+        return false;
+
+    filesize = s.fileSize();
+
+    if(!d.open(&sdcard, dest, O_WRONLY | O_CREAT | O_TRUNC)){
+        s.close();
+        return false;
+    }
+
+    report("\r\ndisk: copying ");
+    disk_progress_bar(0, 0xFFFFFFFF); // init progress bar
+
+    while(result){
+        rbytes = s.read(buffer, DISKOP_BUFFER_SIZE);
+        if(rbytes < 0){ // read error
+            report("disk: cp read error\r\n");
+            result = false;
+        }
+        if(rbytes == 0) // EOF
+            break;
+        wbytes = d.write(buffer, rbytes);
+        if(wbytes != rbytes){
+            report("disk: cp write error\r\n");
+            result = false;
+        }
+        done += rbytes;
+        disk_progress_bar(filesize, done);
+    }
+
+    s.close();
+    if(result)
+        d.close();
+    else
+        d.remove();
+
+    report("\r\n");
 
     return result;
 }
