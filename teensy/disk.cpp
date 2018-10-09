@@ -184,19 +184,28 @@ void disk_mount(void)
 
     if(disk_is_file_mounted(filename)){
         report("disk %d: cannot mount file \"%s\": already mounted.\r\n", disk_selected, filename);
-        return;
+        okay = false;
+    }else{
+        okay = disk[disk_selected].file.open(&sdcard, filename, O_RDWR);
+        if(!okay){
+            report("disk %d: cannot mount file \"%s\": open failed.\r\n", disk_selected, filename);
+        }else{ // okay==true (for now!)
+            disk[disk_selected].size_bytes = disk[disk_selected].file.fileSize();
+            if(disk[disk_selected].size_bytes & 0x3FF)
+                report("disk %d: WARNING: size of \"%s\" is not a multiple of 1024\r\n", disk_selected, filename);
+            if(disk[disk_selected].size_bytes == 0){
+                report("disk %d: cannot mount file \"%s\": zero bytes length\r\n", disk_selected, filename);
+                disk[disk_selected].file.close();
+                okay = false;
+            }
+        }
     }
-
-    okay = disk[disk_selected].file.open(&sdcard, filename, O_RDWR | O_CREAT);
+    // finalise
     disk[disk_selected].sector_number = 0;
     disk[disk_selected].error = !okay;
     disk[disk_selected].mounted = okay;
     disk[disk_selected].writable = okay;
-    if(okay){
-        disk[disk_selected].size_bytes = disk[disk_selected].file.fileSize();
-        if(disk[disk_selected].size_bytes & 0x3FF)
-            report("disk %d: WARNING: size of \"%s\" is not a multiple of 1024\r\n", disk_selected, filename);
-    }else
+    if(!okay)
         disk[disk_selected].size_bytes = 0;
 }
 
@@ -451,7 +460,7 @@ bool disk_cp(const char *source, const char *dest)
         return false;
     }
 
-    report("\r\ndisk: copying ");
+    report("disk: copying ");
     disk_progress_bar(0, 0xFFFFFFFF); // init progress bar
 
     while(result){
@@ -477,7 +486,7 @@ bool disk_cp(const char *source, const char *dest)
     else
         d.remove();
 
-    report("\r\n");
+    report("]  %d bytes\r\n", done);
 
     return result;
 }
