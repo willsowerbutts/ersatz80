@@ -16,6 +16,5 @@ void int_mask_write(uint16_t address, uint8_t value);
 uint8_t int_mask_read(uint16_t address);
 
 bool uart_interrupt_request(void);
-bool timer_interrupt_request(void);
 
 #endif

@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "debug.h"
 #include "z80.h"
+#include "timer.h"
 #include "irq.h"
 
 // our interrupts are level sensitive

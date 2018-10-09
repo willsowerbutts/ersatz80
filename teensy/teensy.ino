@@ -9,6 +9,7 @@
 #include "super.h"
 #include "rom.h"
 #include "irq.h"
+#include "timer.h"
 #include "disk.h"
 
 #define UART_RX_FIFO_BUFFER_SIZE 128
@@ -60,11 +61,6 @@ void uart_write_data(uint16_t address, uint8_t value)
 bool uart_interrupt_request(void)
 {
     return uart_rx_fifo_waiting;
-}
-
-bool timer_interrupt_request(void)
-{
-    return false;
 }
 
 void user_leds_write(uint16_t address, uint8_t value)
@@ -139,7 +135,7 @@ const ioregister_functions_t io_register_handler[256] = {
     { NULL,                 NULL },                 // 0x17
     { int_requests_read,    int_requests_write },   // 0x18 - interrupt controller (status / clear pending)
     { int_mask_read,        int_mask_write },       // 0x19 - interrupt controller (mask)
-    { NULL,                 NULL },                 // 0x1a
+    { timer_read_status,    timer_write_control },  // 0x1a - timer status and control register
     { NULL,                 NULL },                 // 0x1b
     { NULL,                 NULL },                 // 0x1c
     { NULL,                 NULL },                 // 0x1d
@@ -333,6 +329,15 @@ void loop() {
 
     while(true){
         now = millis();
+        // poke the timer
+        handle_timer(now);
+        // handle Z80 interrupt line
+        handle_z80_interrupts();
+        // clock the CPU, if we're in supervised clock mode
+        if(z80_clk_is_supervised())
+            z80_clock_pulse();
+        // handle I/O and memory requests from the Z80
+        handle_z80_bus();
         // handle user input over USB ACM serial
         handle_serial_input();
         // periodically flush written data to the SD card
@@ -342,12 +347,5 @@ void loop() {
             if(now >= disk_sync_due)         // did we miss the next appointment already?
                 disk_sync_due = now + 3000;  // rebase our timer
         }
-        // handle Z80 interrupt line
-        handle_z80_interrupts();
-        // clock the CPU, if we're in supervised clock mode
-        if(z80_clk_is_supervised())
-            z80_clock_pulse();
-        // handle I/O and memory requests from the Z80
-        handle_z80_bus();
     }
 }
