@@ -6,7 +6,7 @@
 #include "irq.h"
 
 bool timer_tick_pending = false;
-unsigned long timer_interval = 1000000;
+unsigned long timer_interval = 1000;
 unsigned long next_timer_tick = 0;
 
 bool timer_interrupt_request(void)
@@ -29,17 +29,16 @@ void timer_write_control(uint16_t address, uint8_t value)
 {
     unsigned long now;
 
-    if(value){ // non-zero writes will set the frequency
+    if(value){ // only non-zero writes will set the frequency
         timer_interval = 1000 / value;
-        report("timer: interval=%d millis\r\n", timer_interval);
+        report("timer: interval %dms\r\n", timer_interval);
     }
 
-    // all writes (including zeroes) clear any pending timer interrupt
-    if(timer_tick_pending){
+    // writes always clear any pending timer interrupt
+    if(timer_tick_pending)
         timer_tick_pending = false;
-    }
 
-    // ... and calculate when the next tick is due
+    // writes always calculate when the next tick is due
     now = millis();
     next_timer_tick = now - (now % timer_interval) + timer_interval;
 }
