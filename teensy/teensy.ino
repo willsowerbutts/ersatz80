@@ -113,21 +113,21 @@ typedef struct {
 } ioregister_functions_t;
 
 const ioregister_functions_t io_register_handler[256] = {
-    { uart_read_status,     NULL },                 // 0x00 - UART 1 status
-    { uart_read_data,       uart_write_data },      // 0x01 - UART 1 data
-    { NULL,                 NULL },                 // 0x02   (reserved for UART 2)
+    { uart_read_status,     NULL },                 // 0x00 - UART 0 status
+    { uart_read_data,       uart_write_data },      // 0x01 - UART 0 data
+    { NULL,                 NULL },                 // 0x02   (reserved for UART 1)
     { NULL,                 NULL },                 // 0x03   ...
-    { NULL,                 NULL },                 // 0x04   (reserved for UART 3)
+    { NULL,                 NULL },                 // 0x04   (reserved for UART 2)
     { NULL,                 NULL },                 // 0x05   ...
-    { NULL,                 NULL },                 // 0x06   (reserved for UART 4)
+    { NULL,                 NULL },                 // 0x06   (reserved for UART 3)
     { NULL,                 NULL },                 // 0x07   ...
-    { NULL,                 NULL },                 // 0x08   (reserved for UART 5)
+    { NULL,                 NULL },                 // 0x08   (reserved for UART 4)
     { NULL,                 NULL },                 // 0x09   ...
-    { NULL,                 NULL },                 // 0x0a   (reserved for UART 6)
+    { NULL,                 NULL },                 // 0x0a   (reserved for UART 5)
     { NULL,                 NULL },                 // 0x0b   ...
-    { NULL,                 NULL },                 // 0x0c   (reserved for UART 7)
+    { NULL,                 NULL },                 // 0x0c   (reserved for UART 6)
     { NULL,                 NULL },                 // 0x0d   ...
-    { NULL,                 NULL },                 // 0x0e   (reserved for UART 8)
+    { NULL,                 NULL },                 // 0x0e   (reserved for UART 7)
     { NULL,                 NULL },                 // 0x0f   ...
     { user_leds_read,       user_leds_write },      // 0x10 - user LEDs (low 8 bits)
     { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (top 4 bits)

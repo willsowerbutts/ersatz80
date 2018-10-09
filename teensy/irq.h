@@ -1,6 +1,9 @@
 #ifndef __IRQ_DOT_H__
 #define __IRQ_DOT_H__
 
+#define INT_BIT_TIMER   0
+#define INT_BIT_UART0   1
+
 uint8_t z80_active_interrupts(void);
 void handle_z80_interrupts(void);
 void z80_assert_interrupt(void);

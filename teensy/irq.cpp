@@ -6,8 +6,6 @@
 
 // our interrupts are level sensitive
 // Z80 can clear the IRQ by writing to the status register.
-#define INT_BIT_TIMER   0
-#define INT_BIT_UART1   1
 uint8_t int_requests = 0x00;
 uint8_t int_mask = 0x00;
 
@@ -19,7 +17,7 @@ void handle_z80_interrupts(void)
 
 uint8_t z80_active_interrupts(void)
 {
-    int_requests = (uart_interrupt_request()  ?  (1 << INT_BIT_UART1) : 0) |
+    int_requests = (uart_interrupt_request()  ?  (1 << INT_BIT_UART0) : 0) |
                    (timer_interrupt_request() ?  (1 << INT_BIT_TIMER) : 0);
     return (int_requests & int_mask);
 }
