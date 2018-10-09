@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "clock.h"
 #include "z80.h"
+#include "irq.h"
 #include "disk.h"
 #include "disasm.h"
 
@@ -687,7 +688,6 @@ void z80_memory_write_block(uint16_t address, const uint8_t *dataptr, uint16_t c
 
 void z80_memory_read_block(uint16_t address, uint8_t *dataptr, uint16_t count)
 {
-    uint8_t data;
     if(count == 0)
         return;
     z80_setup_address(address);
@@ -922,20 +922,23 @@ void handle_z80_bus(void)
 {
     if(z80_wait_asserted()){
         if(z80_iorq_asserted()){
-            if(z80_rd_asserted()){
+            if(z80_rd_asserted()){       // I/O read
                 z80_complete_read(iodevice_read(z80_bus_address()));
                 z80_set_busrq(false);
-            }else if(z80_wr_asserted()){
+            }else if(z80_wr_asserted()){ // I/O write
                 z80_complete_write();
                 iodevice_write(z80_bus_address_low8(), z80_bus_data());
+                z80_set_busrq(false);
+            }else if(z80_m1_asserted()){ // Interrupt acknowledge
+                z80_complete_read(z80_irq_vector());
                 z80_set_busrq(false);
             }else
                 report("(iorq weird?)");
         } else if(z80_mreq_asserted()){
-            if(z80_rd_asserted()){
+            if(z80_rd_asserted()){       // Memory read
                 z80_complete_read(memory_read(z80_bus_address()));
                 z80_set_busrq(false);
-            }else if(z80_wr_asserted()){
+            }else if(z80_wr_asserted()){ // Memory write
                 z80_complete_write();
                 memory_write(z80_bus_address_low8(), z80_bus_data());
                 z80_set_busrq(false);
@@ -1104,11 +1107,11 @@ void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
 
 enum bus_cycle_t { MEM_READ, MEM_WRITE, IO_READ, IO_WRITE, NO_CYCLE };
 
-typedef struct bus_trace_t {
+typedef struct {
     bus_cycle_t cycle;
     uint16_t address;
     uint8_t data;
-};
+} bus_trace_t;
 
 #define MAX_BUS_STATES 8 // presumably this can be lower??
 bus_trace_t bus_trace[MAX_BUS_STATES];
