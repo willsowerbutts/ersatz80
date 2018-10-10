@@ -14,6 +14,7 @@ bool z80_nmi = false;        // Z80 /NMI pin
 bool ram_ce = false;         // RAM /CE pin
 int z80_bus_trace = 0;
 uint8_t mmu[4];
+uint8_t mmu_foreign[4];
 uint8_t ram_pages = 0;
 
 void shift_register_update(void)
@@ -537,16 +538,15 @@ void z80_setup_address_data(uint16_t address, uint8_t data)
 #endif
 }
 
-void z80_mmu_write(uint16_t address, uint8_t data)
+void z80_mmu_write(uint8_t bank, uint8_t data)
 {
     /* assert(DMA_MODE / WR_ADDR | WR_DATA / ...)  ? to detect being called in wrong mode */
-    z80_setup_address_data(address, data);
+    z80_setup_address_data(bank << 14, data);
 #ifdef KINETISK
     *portOutputRegister(MMU_EW) = 0;
     *portOutputRegister(MMU_EW) = 1;
 #else
     digitalWrite(MMU_EW, 0);
-    delayMicroseconds(1);
     digitalWrite(MMU_EW, 1);
 #endif
 }
@@ -949,6 +949,18 @@ void handle_z80_bus(void)
     }
 }
 
+void z80_mmu_switch_context_local(void)
+{
+    for(int b=0; b<4; b++)
+        z80_mmu_write(b, mmu[b]);
+}
+
+void z80_mmu_switch_context_foreign(void)
+{
+    for(int b=0; b<4; b++)
+        z80_mmu_write(b, mmu_foreign[b]);
+}
+
 void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
 {
     if(bank < 0 || bank > 3){
@@ -958,7 +970,7 @@ void z80_set_mmu(int bank, uint8_t page) // call only in DMA mode
     if(mmu[bank] == page)
         return;
     mmu[bank] = page;
-    z80_mmu_write(bank << 14, page);
+    z80_mmu_write(bank, page);
 }
 
 void begin_dma(void)

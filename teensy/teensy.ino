@@ -80,6 +80,16 @@ uint8_t user_leds_read(uint16_t address)
         return user_led & 0xFF;
 }
 
+uint8_t mmu_foreign_read(uint16_t address)
+{
+    return mmu_foreign[address & 3];
+}
+
+void mmu_foreign_write(uint16_t address, uint8_t value)
+{
+    mmu_foreign[address & 3] = value;
+}
+
 uint8_t mmu_read(uint16_t address)
 {
     return mmu[address & 3];
@@ -229,14 +239,14 @@ const ioregister_functions_t io_register_handler[256] = {
     { NULL,                 NULL },                 // 0x75
     { NULL,                 NULL },                 // 0x76
     { NULL,                 NULL },                 // 0x77
-    { mmu_read,             mmu_write },            // 0x78 - MMU bank select (Zeta2 compatible)
-    { mmu_read,             mmu_write },            // 0x79 - MMU bank select (Zeta2 compatible)
-    { mmu_read,             mmu_write },            // 0x7a - MMU bank select (Zeta2 compatible)
-    { mmu_read,             mmu_write },            // 0x7b - MMU bank select (Zeta2 compatible)
-    { NULL,                 NULL },                 // 0x7c
-    { NULL,                 NULL },                 // 0x7d
-    { NULL,                 NULL },                 // 0x7e
-    { NULL,                 NULL },                 // 0x7f
+    { mmu_read,             mmu_write },            // 0x78 - MMU bank 0 select (Zeta2 compatible)
+    { mmu_read,             mmu_write },            // 0x79 - MMU bank 1 select (Zeta2 compatible)
+    { mmu_read,             mmu_write },            // 0x7a - MMU bank 2 select (Zeta2 compatible)
+    { mmu_read,             mmu_write },            // 0x7b - MMU bank 3 select (Zeta2 compatible)
+    { mmu_foreign_read,     mmu_foreign_write },    // 0x7c - MMU foreign context bank 0 select
+    { mmu_foreign_read,     mmu_foreign_write },    // 0x7d - MMU foreign context bank 1 select
+    { mmu_foreign_read,     mmu_foreign_write },    // 0x7e - MMU foreign context bank 2 select
+    { mmu_foreign_read,     mmu_foreign_write },    // 0x7f - MMU foreign context bank 3 select
     // remaining unspecified entries come out as {NULL,NULL}.
 };
 

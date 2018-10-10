@@ -126,13 +126,16 @@ void disk_transfer(bool write)
 
     begin_dma();
 
+    if(disk[disk_selected].dma_address & 0x800000)
+        z80_mmu_switch_context_foreign();
+
     maxsec = MAX_SECTOR_SIZE >> disk[disk_selected].sector_size_log;
     remain = disk[disk_selected].sector_count;
     while(remain){
         count = (remain > maxsec) ? maxsec : remain;
         bytes = count << disk[disk_selected].sector_size_log;
         if(write){
-            z80_memory_read_block(disk[disk_selected].dma_address, iobuf, bytes);
+            z80_memory_read_block(disk[disk_selected].dma_address & 0xFFFF, iobuf, bytes);
             r = disk[disk_selected].file.write(iobuf, bytes);
             //report("disk %d: write %d bytes = %d\r\n", disk_selected, bytes, r);
             if(r < bytes){
@@ -151,13 +154,16 @@ void disk_transfer(bool write)
                 report("disk %d: WARNING: padding incomplete read %d/%d?\r\n", disk_selected, r, bytes);
                 memset(&iobuf[r], 0, bytes - r); // wipe unread portion of sector buffer
             }
-            z80_memory_write_block(disk[disk_selected].dma_address, iobuf, bytes);
+            z80_memory_write_block(disk[disk_selected].dma_address & 0xFFFF, iobuf, bytes);
         }
         // advance our pointers
         disk[disk_selected].dma_address += bytes;
         disk[disk_selected].sector_number += count;
         remain -= count;
     }
+
+    if(disk[disk_selected].dma_address & 0x800000)
+        z80_mmu_switch_context_local();
 
     end_dma();
 }

@@ -67,6 +67,8 @@ void z80_set_release_wait(bool release);
 void z80_setup_drive_data(uint8_t data);
 void z80_shutdown_drive_data(void);
 void z80_set_mmu(int bank, uint8_t page);
+void z80_mmu_switch_context_local(void);
+void z80_mmu_switch_context_foreign(void);
 
 void z80_show_regs(void);
 void z80_show_pin_states(void);
@@ -82,6 +84,7 @@ extern bool z80_nmi;
 extern bool ram_ce;
 extern int z80_bus_trace;
 extern uint8_t mmu[4];
+extern uint8_t mmu_foreign[4];
 extern uint8_t ram_pages; // count of 16KB SRAM pages
 
 #ifdef KINETISK
