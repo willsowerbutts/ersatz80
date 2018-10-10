@@ -487,9 +487,10 @@ bool disk_cp(const char *source, const char *dest)
     }
 
     s.close();
-    if(result)
+    if(result){
+        d.sync();
         d.close();
-    else
+    }else
         d.remove();
 
     report("]  %d bytes\r\n", done);
