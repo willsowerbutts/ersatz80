@@ -13,6 +13,6 @@ rom.cpp:	monitor.asm
 
 
 all:	rom.cpp $(TARGET_HEX)
-		~/arduino-1.8.5/teensy_loader_cli --mcu=mk64fx512 -v -s ./build-teensy35/teensy.hex
+		~/arduino-1.8.5/teensy_loader_cli --mcu=mk64fx512 -v -s ./build-teensy35/ersatz80.hex
 		sleep 1
 		picocom -b 9600 -f n /dev/ttyACM0

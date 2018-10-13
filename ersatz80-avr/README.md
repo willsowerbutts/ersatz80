@@ -1,5 +1,8 @@
 # ersatz80 (avr)
 
+The AVR version was a prototype board, no longer under development, kept here
+for reference purposes only. I suggest you look at the teensy system instead.
+
 ## Overview
 
 ersatz80 AVR is a Z80 controlled by an AVR. In this prototype the AVR provides
