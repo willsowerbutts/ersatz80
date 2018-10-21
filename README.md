@@ -1,7 +1,34 @@
+# ersatz80
+
+ersatz80 is a Z80 microcomputer system using an ARM microcontroller as a
+peripheral and supervisor/debugger. The system has memory banking hardware 
+allowing the Z80 to access 1MB of SRAM. The Z80 clock speed is variable and 
+can be up to 20MHz. The ARM provides several peripherals to the Z80 including 
+a timer, interrupt controller, UART and disk controller with DMA support. The 
+disk controller uses disk images in a FAT filesystem stored on a microSD 
+card.
+
+## Brief instructions
+
+Assemble and populate the PCB. Program the Teensy with the firmware. Insert a 
+FAT formatted microSD card (optional). Connect the Teensy's USB port to a 
+computer and connect to the USB ACM serial device with your terminal 
+software. The serial input is normally sent to the Z80 UART device however 
+pressing the escape keycode (by default Ctrl+G) will wake up the supervisor 
+which will read and execute a command. The "help" command should give some 
+clues as to what commands are available.
+
+## PCB
+
+Please contact me by email (will@sowerbutts.com) if you would like me to post 
+you a bare PCB or if you would like Gerber files to fabricate your own PCBs.  
+The PCB measures just under 100x100mm and so qualifies for several of the 
+cheaper "prototype" fabrication services.
+
 Bill of materials for PCB:
  - Teensy 3.5 (do not substitute 3.6)
  - 16 x 0.1uF MLCC capacitors
- - Z84C0020 (Z80 CPU, DIP, CMOS)
+ - Z84C0020 (Z80 CPU, DIP, CMOS, do not attempt to use NMOS parts)
  - 2 x AS6C4008
  - 2 x 74AHCT00
  - 2 x 74AHCT595
