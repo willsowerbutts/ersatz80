@@ -54,7 +54,7 @@ void sram_setup(void);
 void z80_memory_write_block(uint16_t address, const uint8_t *dataptr, uint16_t count);
 void z80_memory_read_block(uint16_t address, uint8_t *dataptr, uint16_t count);
 void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address);
-void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address);
+int load_file_to_sram(char *filename, uint16_t address);
 void z80_do_reset(void);
 void z80_set_reset(bool active);
 void z80_clock_pulse_drive_data(uint8_t data);

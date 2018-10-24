@@ -231,14 +231,18 @@ void super_reset(int argc, char *argv[])
 
 void super_loadfile(int argc, char *argv[])
 {
-    if(argc < 3){
-        report("error: syntax: loadfile [filename] [address] [start address]\r\n"
-               "note: [filename] must be 8.3 format\r\n"
-               "note: address and start address in hex\r\n");
+    int r;
+    if(argc < 2){
+        report("error: syntax: loadfile [filename] [address]\r\n"
+               "note: address is in hex (do not use 0x prefix)\r\n");
     }else {
-      long int address = strtol(argv[1], NULL, 16);
-      long int start_address = strtol(argv[2], NULL, 16);
-      load_file_to_sram(argv[0], address, start_address);
+      uint16_t address = strtol(argv[1], NULL, 16);
+      report("loadfile \"%s\": ", argv[0]);
+      r = load_file_to_sram(argv[0], address);
+      if(r < 0)
+          report("failed\r\n");
+      else
+          report("loaded %d bytes\r\n", r);
     }
 }
 

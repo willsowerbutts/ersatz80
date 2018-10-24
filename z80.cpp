@@ -1078,43 +1078,42 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
     end_dma();
 }
 
-void load_file_to_sram(char *filename, uint16_t address, uint16_t start_address)
+#define LOAD_BUFFER_SIZE 512
+int load_file_to_sram(char *filename, uint16_t address)
 {
-#if 0 // TODO update to use SdFat
+    SdBaseFile file;
+    uint8_t buffer[LOAD_BUFFER_SIZE];
+    bool old_ram_ce;
+    int r, total;
+
+    // Open file
+    if(!file.open(&sdcard, filename, O_RDONLY))
+        return -1;
+
+    // prepare the machine
     begin_dma();
-
-    // stash current state
-    bool old_ram_ce = ram_ce;
-
-    // enable the SRAM
+    old_ram_ce = ram_ce;
     ram_ce = true;
     shift_register_update();
 
-    if(start_address != 0x0000){
-        z80_memory_write(0, 0xc3); // JP instruction
-        z80_memory_write(1, start_address & 0xFF);
-        z80_memory_write(2, start_address >> 8);
-    }
-
-    // Open file
-    File testFile = SD.open(filename);
-
-    // Load file to RAM 
-    if (testFile) {
-      while (testFile.available()) {
-        z80_memory_write(address++, testFile.read());
-      }
-      testFile.close();
-    }
-    else {
-      report("error opening file!\r\n");
+    // Load the file block by block
+    total = 0;
+    while(true){
+        r = file.read(buffer, LOAD_BUFFER_SIZE);
+        if(r <= 0)
+            break;
+        z80_memory_write_block(address, buffer, r);
+        address += r;
+        total += r;
     }
 
     // restore machine state
     ram_ce = old_ram_ce;
     shift_register_update();
     end_dma();
-#endif 
+    file.close();
+
+    return total;
 }
 
 enum bus_cycle_t { MEM_READ, MEM_WRITE, IO_READ, IO_WRITE, NO_CYCLE };
@@ -1157,6 +1156,7 @@ void z80_instruction_ended(void)
                 case MEM_WRITE: report("%04x<-", bus_trace[i].address); break;
                 case IO_READ:   report("io%04x: ", bus_trace[i].address); break;
                 case IO_WRITE:  report("io%04x<-", bus_trace[i].address); break;
+                case NO_CYCLE:  break; // should never happen
             }
         }
         report("%02x%s", bus_trace[i].data, i == (bus_trace_count-1) ? "" : (i == (bus_trace_di-1) ? " / " : " "));
