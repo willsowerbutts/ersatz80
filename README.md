@@ -72,4 +72,17 @@ tested, and you will want to connect to the USB port in any event so you can
 access the console!
 
 The revision 1 PCB is a bit packed and you may wish to omit the two capacitors
-between U7/U11 and U8/U15 to ensure a clean fit.
+between U7/U11 and U8/U15 to ensure a clean fit. This issue does not affect
+the revision 2 PCB.
+
+## PCB Revisions
+
+For revision 1 PCBs you must uncomment "#define ERSATZ80_PCB_REV1" in z80.h
+
+For revision 2 PCBs you must comment out "#define ERSATZ80_PCB_REV1" in z80.h
+
+## Overclocking
+
+It is possible to fit faster oscillators at U10 and overclock the Z80 CPU.
+Using a Zilog Z84C0020PEG CMOS Z80 CPU it has been determined that oscillators
+up to 24MHz (20% overclock) give reliable operation, while 25MHz was too fast.

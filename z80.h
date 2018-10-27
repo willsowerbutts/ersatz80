@@ -3,6 +3,11 @@
 
 #include <Arduino.h>
 
+// uncomment this line for rev1 PCBs only:
+#define ERSATZ80_PCB_REV1
+
+#ifdef ERSATZ80_PCB_REV1
+// 2018-09-03 PCB rev1
 const int CLK_FAST_ENABLE       = 8;        // GPIO D 3
 const int CLK_STROBE            = 7;        // GPIO D 2
 const int MMU_EW                = 15;       // GPIO C 0
@@ -43,7 +48,49 @@ const int Z80_IORQ              = 0;        // GPIO B 16
 const int Z80_MREQ              = 1;        // GPIO B 17
 const int Z80_HALT              = 10;       // GPIO C 4
 const int Z80_WAIT              = 5;        // GPIO D 7
-// GPIO{A,B,C,D,E}_{PDOR,PSOR,PDOR,PCOR,PDDR,PDIR}
+#else
+// 2018-10-26 PCB rev2: pin mapping was optimised for simpler Teensy software
+const int CLK_FAST_ENABLE       = 30;       // GPIO B 19
+const int CLK_STROBE            = 29;       // GPIO B 18
+const int MMU_EW                = 39;       // GPIO A 17
+const int SHIFT_REGISTER_DATA   = 34;       // GPIO E 25
+const int SHIFT_REGISTER_LATCH  = 24;       // GPIO E 26
+const int SHIFT_REGISTER_CLK    = 33;       // GPIO E 24
+const int WAIT_RESET            = 27;       // GPIO A 15
+const int Z80_A0                = 15;       // GPIO C 0
+const int Z80_A1                = 22;       // GPIO C 1
+const int Z80_A2                = 23;       // GPIO C 2
+const int Z80_A3                = 9;        // GPIO C 3
+const int Z80_A4                = 10;       // GPIO C 4
+const int Z80_A5                = 13;       // GPIO C 5
+const int Z80_A6                = 11;       // GPIO C 6
+const int Z80_A7                = 12;       // GPIO C 7
+const int Z80_A8                = 35;       // GPIO C 8
+const int Z80_A9                = 36;       // GPIO C 9
+const int Z80_A10               = 37;       // GPIO C 10
+const int Z80_A11               = 38;       // GPIO C 11
+const int Z80_A12               = 16;       // GPIO B 0
+const int Z80_A13               = 17;       // GPIO B 1
+const int Z80_A14               = 19;       // GPIO B 2
+const int Z80_A15               = 18;       // GPIO B 3
+const int Z80_BUSACK            = 4;        // GPIO A 13
+const int Z80_BUSRQ             = 3;        // GPIO A 12
+const int Z80_D0                = 2;        // GPIO D 0
+const int Z80_D1                = 14;       // GPIO D 1
+const int Z80_D2                = 7;        // GPIO D 2
+const int Z80_D3                = 8;        // GPIO D 3
+const int Z80_D4                = 6;        // GPIO D 4
+const int Z80_D5                = 20;       // GPIO D 5
+const int Z80_D6                = 21;       // GPIO D 6
+const int Z80_D7                = 5;        // GPIO D 7
+const int Z80_M1                = 25;       // GPIO A 5
+const int Z80_RD                = 1;        // GPIO B 17
+const int Z80_WR                = 0;        // GPIO B 16
+const int Z80_IORQ              = 31;       // GPIO B 10
+const int Z80_MREQ              = 32;       // GPIO B 11
+const int Z80_HALT              = 26;       // GPIO A 14
+const int Z80_WAIT              = 28;       // GPIO A 16
+#endif
 
 void shift_register_update(void);
 void z80_bus_master(void);

@@ -58,12 +58,19 @@ void z80_bus_master(void)
     //     report("z80_bus_master: WR=0!\r\n");
     // if(*portOutputRegister(Z80_RD) == 0)
     //     report("z80_bus_master: RD=0!\r\n");
+#ifdef ERSATZ80_PCB_REV1
     GPIOA_PDDR |= ((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
     GPIOB_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) |
                    (1<<16) | (1<<17) | (1<<18) | (1<<19));
     GPIOC_PDDR |= ((1<<1) | (1<<2) | (1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOD_PDDR |= ((1<<0) | (1<<5) | (1<<6));
     GPIOE_PDDR |= ((1<<24) | (1<<25) | (1<<26));
+#else
+    GPIOB_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) | (1<<16) | (1<<17));
+    GPIOC_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | 
+                   (1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOD_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
+#endif
 #else
     pinMode(Z80_A0,    OUTPUT);
     pinMode(Z80_A1,    OUTPUT);
@@ -99,12 +106,19 @@ void z80_bus_master(void)
 void z80_bus_slave(void)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     GPIOA_PDDR &=~((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
     GPIOB_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) |
                    (1<<16) | (1<<17) | (1<<18) | (1<<19));
     GPIOC_PDDR &=~((1<<1) | (1<<2) | (1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOD_PDDR &=~((1<<0) | (1<<5) | (1<<6));
     GPIOE_PDDR &=~((1<<24) | (1<<25) | (1<<26));
+#else
+    GPIOB_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) | (1<<16) | (1<<17));
+    GPIOC_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | 
+                   (1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOD_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
+#endif
 #else
     pinMode(Z80_A0,    INPUT);
     pinMode(Z80_A1,    INPUT);
@@ -226,12 +240,19 @@ void z80_setup(void)
     *portConfigRegister(Z80_IORQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     *portConfigRegister(Z80_MREQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     // drive all Z80 bus pins to 1
+#ifdef ERSATZ80_PCB_REV1
     GPIOA_PSOR = ((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
     GPIOB_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) |
                   (1<<16) | (1<<17) | (1<<18) | (1<<19));
     GPIOC_PSOR = ((1<<1) | (1<<2) | (1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOD_PSOR = ((1<<0) | (1<<5) | (1<<6));
     GPIOE_PSOR = ((1<<24) | (1<<25) | (1<<26));
+#else
+    GPIOB_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) | (1<<16) | (1<<17));
+    GPIOC_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | 
+                   (1<<8) | (1<<9) | (1<<10) | (1<<11));
+    GPIOD_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
+#endif
 #endif
     pinMode(Z80_M1, INPUT);
     pinMode(Z80_WAIT, INPUT);
@@ -254,6 +275,7 @@ void z80_setup(void)
 uint16_t z80_bus_address(void)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     unsigned int gpio_a = GPIOA_PDIR;
     unsigned int gpio_b = GPIOB_PDIR;
     unsigned int gpio_c = GPIOC_PDIR;
@@ -277,6 +299,9 @@ uint16_t z80_bus_address(void)
            ((gpio_b & (1<< 19)) >> 19 << 14) |
            ((gpio_b & (1<< 10)) >> 10 << 15);
 #else
+    return (GPIOC_PDIR & 0xFFF) | ((GPIOB_PDIR & 0xF) << 12);
+#endif
+#else
     return  digitalRead(Z80_A0)         |
            (digitalRead(Z80_A1)  <<  1) |
            (digitalRead(Z80_A2)  <<  2) |
@@ -299,6 +324,7 @@ uint16_t z80_bus_address(void)
 uint8_t z80_bus_address_low8(void)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     unsigned int gpio_b = GPIOB_PDIR;
     unsigned int gpio_c = GPIOC_PDIR;
     unsigned int gpio_d = GPIOD_PDIR;
@@ -311,6 +337,9 @@ uint8_t z80_bus_address_low8(void)
            ((gpio_d & (1<< 6 )) >>  6  <<  5) |
            ((gpio_c & (1<< 1 )) >>  1  <<  6) |
            ((gpio_c & (1<< 2 )) >>  2  <<  7);
+#else
+    return (GPIOC_PDIR & 0xFF);
+#endif
 #else
     return  digitalRead(Z80_A0)       |
            (digitalRead(Z80_A1) << 1) |
@@ -326,6 +355,7 @@ uint8_t z80_bus_address_low8(void)
 uint8_t z80_bus_data(void)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     unsigned int gpio_a = GPIOA_PDIR;
     unsigned int gpio_b = GPIOB_PDIR;
     unsigned int gpio_c = GPIOC_PDIR;
@@ -339,6 +369,9 @@ uint8_t z80_bus_data(void)
            ((gpio_c & (1<< 10 )) >> 10 << 5) |
            ((gpio_c & (1<< 11 )) >> 11 << 6) |
            ((gpio_a & (1<< 17 )) >> 17 << 7); 
+#else
+    return (GPIOD_PDIR & 0xFF);
+#endif
 #else
     return  digitalRead(Z80_D0)       | // digitalRead() returns only 0 or 1
            (digitalRead(Z80_D1) << 1) |
@@ -360,6 +393,7 @@ void z80_set_reset(bool active)
 void z80_setup_drive_data(uint8_t data)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     GPIOA_PDDR |= ((1<<17));
     GPIOB_PDDR |= ((1<<11));
     GPIOC_PDDR |= ((1<<8) | (1<<9) | (1<<10) | (1<<11));
@@ -372,6 +406,10 @@ void z80_setup_drive_data(uint8_t data)
     *portOutputRegister(Z80_D5) = data >> 5;
     *portOutputRegister(Z80_D6) = data >> 6;
     *portOutputRegister(Z80_D7) = data >> 7;
+#else
+    GPIOD_PDDR |= 0xFF;
+    GPIOD_PDOR = (GPIOD_PDOR & ~0xFF) | data;
+#endif
 #else
     pinMode(Z80_D0, OUTPUT);
     pinMode(Z80_D1, OUTPUT);
@@ -395,10 +433,14 @@ void z80_setup_drive_data(uint8_t data)
 void z80_shutdown_drive_data(void)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     GPIOA_PDDR &= ~((1<<17));
     GPIOB_PDDR &= ~((1<<11));
     GPIOC_PDDR &= ~((1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOE_PDDR &= ~((1<<24) | (1<<25));
+#else
+    GPIOD_PDDR &= ~0xFF;
+#endif
 #else
     pinMode(Z80_D0,   INPUT);
     pinMode(Z80_D1,   INPUT);
@@ -446,6 +488,7 @@ void z80_do_reset(void)
 void z80_setup_address(uint16_t address)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     *portOutputRegister(Z80_A0 ) = address;
     *portOutputRegister(Z80_A1 ) = address >>  1;
     *portOutputRegister(Z80_A2 ) = address >>  2;
@@ -462,6 +505,10 @@ void z80_setup_address(uint16_t address)
     *portOutputRegister(Z80_A13) = address >> 13;
     *portOutputRegister(Z80_A14) = address >> 14;
     *portOutputRegister(Z80_A15) = address >> 15;
+#else
+    GPIOC_PDOR = (GPIOC_PDOR & ~0xFFF) | (address & 0xFFF);
+    GPIOB_PDOR = (GPIOB_PDOR & ~0xF)   | (address >> 12);
+#endif
 #else
     digitalWrite(Z80_A0,  address & (1<<0)  ? 1 : 0);
     digitalWrite(Z80_A1,  address & (1<<1)  ? 1 : 0);
@@ -485,6 +532,7 @@ void z80_setup_address(uint16_t address)
 void z80_setup_address_data(uint16_t address, uint8_t data)
 {
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
     *portOutputRegister(Z80_A0 ) = address;
     *portOutputRegister(Z80_A1 ) = address >>  1;
     *portOutputRegister(Z80_A2 ) = address >>  2;
@@ -509,6 +557,11 @@ void z80_setup_address_data(uint16_t address, uint8_t data)
     *portOutputRegister(Z80_D5 ) = data >> 5;
     *portOutputRegister(Z80_D6 ) = data >> 6;
     *portOutputRegister(Z80_D7 ) = data >> 7;
+#else
+    GPIOC_PDOR = (GPIOC_PDOR & ~0xFFF) | (address & 0xFFF);
+    GPIOB_PDOR = (GPIOB_PDOR & ~0xF)   | (address >> 12);
+    GPIOD_PDOR = (GPIOD_PDOR & ~0xFF)  | data;
+#endif
 #else
     digitalWrite(Z80_A0,  address & (1<<0)  ? 1 : 0);
     digitalWrite(Z80_A1,  address & (1<<1)  ? 1 : 0);
@@ -559,6 +612,7 @@ void z80_wipe_page(void)
     // there must be a more efficient way to do this, since
     // relatively few of the pins change on most cycles:
     for(int i=0; i<16384; i++){
+#ifdef ERSATZ80_PCB_REV1
         *portOutputRegister(Z80_A0 ) = i;
         *portOutputRegister(Z80_A1 ) = i >>  1;
         *portOutputRegister(Z80_A2 ) = i >>  2;
@@ -577,6 +631,10 @@ void z80_wipe_page(void)
             *portOutputRegister(Z80_A14) = i >> 14;
             *portOutputRegister(Z80_A15) = i >> 15;
         }
+#else
+        GPIOC_PDOR = (GPIOC_PDOR & ~0xFFF) | (i & 0xFFF);
+        GPIOB_PDOR = (GPIOB_PDOR & ~0xF)   | (i >> 12);
+#endif
     }
     *portOutputRegister(Z80_WR) = 1;
     *portOutputRegister(Z80_MREQ) = 1;
@@ -618,6 +676,7 @@ void z80_memory_write_block(uint16_t address, const uint8_t *dataptr, uint16_t c
         count--;
 #ifdef KINETISK
         *portOutputRegister(Z80_WR) = 1;
+#ifdef ERSATZ80_PCB_REV1
         *portOutputRegister(Z80_D0) = data;
         *portOutputRegister(Z80_D1) = data >> 1;
         *portOutputRegister(Z80_D2) = data >> 2;
@@ -644,6 +703,11 @@ void z80_memory_write_block(uint16_t address, const uint8_t *dataptr, uint16_t c
             *portOutputRegister(Z80_A14) = address >> 14;
             *portOutputRegister(Z80_A15) = address >> 15;
         }
+#else
+        GPIOC_PDOR = (GPIOC_PDOR & ~0xFFF) | (address & 0xFFF);
+        GPIOB_PDOR = (GPIOB_PDOR & ~0xF)   | (address >> 12);
+        GPIOD_PDOR = (GPIOD_PDOR & ~0xFF)  | data;
+#endif
         *portOutputRegister(Z80_WR) = 0;
 #else
         digitalWrite(Z80_WR, 1);
@@ -703,6 +767,7 @@ void z80_memory_read_block(uint16_t address, uint8_t *dataptr, uint16_t count)
         *(dataptr++) = z80_bus_data();
         address++;
 #ifdef KINETISK
+#ifdef ERSATZ80_PCB_REV1
         *portOutputRegister(Z80_A0) = address;
         *portOutputRegister(Z80_A1) = address >> 1;
         *portOutputRegister(Z80_A2) = address >> 2;
@@ -721,6 +786,10 @@ void z80_memory_read_block(uint16_t address, uint8_t *dataptr, uint16_t count)
             *portOutputRegister(Z80_A14) = address >> 14;
             *portOutputRegister(Z80_A15) = address >> 15;
         }
+#else
+        GPIOC_PDOR = (GPIOC_PDOR & ~0xFFF) | (address & 0xFFF);
+        GPIOB_PDOR = (GPIOB_PDOR & ~0xF)   | (address >> 12);
+#endif
 #else
         digitalWrite(Z80_A0, address & (1<<0) ? 1 : 0);
         digitalWrite(Z80_A1, address & (1<<1) ? 1 : 0);

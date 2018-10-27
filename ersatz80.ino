@@ -299,6 +299,47 @@ void handle_serial_input(void)
     }
 }
 
+bool check_pcb_revision(void)
+{
+    // perform a simple test to try and catch when the PCB revision is misconfigured
+    bool okay = true;
+    pinMode(Z80_BUSRQ, OUTPUT);
+    pinMode(CLK_FAST_ENABLE, OUTPUT);
+    pinMode(CLK_STROBE, OUTPUT);
+    digitalWrite(CLK_FAST_ENABLE, 0);
+    digitalWrite(Z80_BUSRQ, 0); // request DMA
+    // can't rely on Z80_BUSACK being connected so just send a bunch of clocks out
+    for(int i=0; i<20; i++){
+        digitalWrite(CLK_STROBE, 1);
+        delayMicroseconds(50);
+        digitalWrite(CLK_STROBE, 0);
+        delayMicroseconds(50);
+    }
+    pinMode(Z80_IORQ, OUTPUT);
+    pinMode(WAIT_RESET, OUTPUT);
+    digitalWrite(Z80_IORQ, 1);
+    digitalWrite(WAIT_RESET, 0); // release /WAIT
+    delayMicroseconds(50);
+    digitalWrite(WAIT_RESET, 1); 
+    delayMicroseconds(50);
+    if(!digitalRead(Z80_WAIT)) // should be 1
+        okay = false;
+    digitalWrite(Z80_IORQ, 0);  // strobe /IORQ, should assert /WAIT
+    delayMicroseconds(50);
+    digitalWrite(Z80_IORQ, 1); 
+    delayMicroseconds(50);
+    if(digitalRead(Z80_WAIT)) // should be 0
+        okay = false;
+    digitalWrite(WAIT_RESET, 0); // release /WAIT
+    delayMicroseconds(50);
+    digitalWrite(WAIT_RESET, 1); 
+    delayMicroseconds(50);
+    if(!digitalRead(Z80_WAIT)) // should be 1
+        okay = false;
+    digitalWrite(Z80_BUSRQ, 1); // release DMA
+    return okay;
+}
+
 void __assert_func(const char *__file, int __lineno, const char *__func, const char *__sexp) {
     // put the Z80 bus in a safe mode where we're not driving any signals
     z80_bus_slave();
@@ -310,7 +351,8 @@ void __assert_func(const char *__file, int __lineno, const char *__func, const c
     while(1);
 }
 
-void setup() {
+void setup() 
+{
     z80_setup();
     z80_clk_set_independent(0.0);
     z80_do_reset();
@@ -320,6 +362,14 @@ void setup() {
            " / _ \\ '__/ __|/ _` | __|_  / _ \\| | | |\r\n|  __/ |  \\__ \\ (_| | |_ / / (_) | |_| |\r\n"
            " \\___|_|  |___/\\__,_|\\__/___\\___/ \\___/ \r\nersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", 
            F_CPU/1000000.0, F_BUS/1000000.0);
+    if(!check_pcb_revision()){
+        #ifdef ERSATZ80_PCB_REV1
+        report("ERSATZ80_PCB_REV1 defined but this appears to be a different PCB.\r\nUndefine ERSATZ80_PCB_REV1 in z80.h and recompile.\r\n");
+        #else
+        report("ERSATZ80_PCB_REV1 not defined but this does not appear to be a rev2 or later PCB.\r\nDefine ERSATZ80_PCB_REV1 in z80.h and recompile.\r\n");
+        #endif
+        while(1); // halt
+    }
     disk_init();
     mmu_setup();
     sram_setup();
