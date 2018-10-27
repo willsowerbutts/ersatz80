@@ -4,6 +4,22 @@
 #include "clock.h"
 #include "z80.h"
 
+#ifdef ERSATZ80_PCB_REV1
+// On rev1 PCBs FTM3 channel 2 drives CLK_STROBE
+#define FTM_CLK_CSC FTM3_C2SC
+#define FTM_CLK_CNT FTM3_CNT
+#define FTM_CLK_MOD FTM3_MOD
+#define FTM_CLK_CV  FTM3_C2V
+#define FTM_CLK_SC  FTM3_SC
+#else
+// On rev2 PCBs FTM2 channel 0 drives CLK_STROBE
+#define FTM_CLK_CSC FTM2_C0SC
+#define FTM_CLK_CNT FTM2_CNT
+#define FTM_CLK_MOD FTM2_MOD
+#define FTM_CLK_CV  FTM2_C0V
+#define FTM_CLK_SC  FTM2_SC
+#endif
+
 void z80_slow_clock_set_frequency(float frequency);
 
 typedef enum { CLK_FAST, CLK_SLOW, CLK_SUPERVISED, CLK_STOPPED } clk_mode_t;
@@ -38,7 +54,7 @@ void z80_clk_slow_start(float frequency)
 {
     assert(clk_mode == CLK_STOPPED || clk_mode == CLK_SUPERVISED);
     // reconfigure the output pin to connect it to the FTM
-    CORE_PIN7_CONFIG = PORT_PCR_MUX(4) | PORT_PCR_DSE | PORT_PCR_SRE;
+    *portConfigRegister(CLK_STROBE) = PORT_PCR_MUX(4) | PORT_PCR_DSE | PORT_PCR_SRE;
     z80_slow_clock_set_frequency(frequency);
     // select a running clock
     clk_mode = CLK_SLOW;
@@ -46,14 +62,14 @@ void z80_clk_slow_start(float frequency)
 
 void z80_clk_slow_wait_event(void)
 {
-    FTM3_C2SC = FTM3_C2SC & (~FTM_CSC_CHF); // clear the CHF bit
-    while(!(FTM3_C2SC & FTM_CSC_CHF));        // wait for CHG bit to be set
+    FTM_CLK_CSC = FTM_CLK_CSC & (~FTM_CSC_CHF); // clear the CHF bit
+    while(!(FTM_CLK_CSC & FTM_CSC_CHF));        // wait for CHG bit to be set
 }
 
 void z80_clk_slow_wait_overflow(void)
 {
-    FTM3_SC = FTM3_SC & (~FTM_SC_TOF);  // clear the TOF flag by reading SC and then writing 0 to the TOF bit
-    while(!(FTM3_SC & FTM_SC_TOF));     // wait for timer to overflow (TOF flag is set)
+    FTM_CLK_SC = FTM_CLK_SC & (~FTM_SC_TOF);    // clear the TOF flag by reading SC and then writing 0 to the TOF bit
+    while(!(FTM_CLK_SC & FTM_SC_TOF));          // wait for timer to overflow (TOF flag is set)
 }
 
 void z80_clk_slow_stop(void)
@@ -61,7 +77,7 @@ void z80_clk_slow_stop(void)
     assert(clk_mode == CLK_SLOW);
 
     // set 0% duty in V reg
-    FTM3_C2V = 0;
+    FTM_CLK_CV = 0;
 
     // wait for timer to overflow so we know the V reg has been updated
     z80_clk_slow_wait_overflow();
@@ -70,7 +86,7 @@ void z80_clk_slow_stop(void)
     *portOutputRegister(CLK_STROBE) = 0;
 
     // switch the mux from FTM back to GPIO
-    CORE_PIN7_CONFIG = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
+    *portConfigRegister(CLK_STROBE) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     clk_mode = CLK_STOPPED;
 }
 
@@ -104,12 +120,12 @@ void z80_slow_clock_set_frequency(float frequency)
         mod = 0xFFFE;
 
     // configure the FTM hardware
-    FTM3_SC   = FTM_SC_CLKS(0) | FTM_SC_PS(0); // select no clock
-    FTM3_C2SC = FTM_CSC_MSB | FTM_CSC_ELSB;
-    FTM3_CNT  = 0;
-    FTM3_MOD  = mod;
-    FTM3_C2V  = 1 + (mod >> 1); // always 50% duty cycle
-    FTM3_SC   = FTM_SC_CLKS(clks) | FTM_SC_PS(prescale); // select system clock, no prescaler
+    FTM_CLK_SC  = FTM_SC_CLKS(0) | FTM_SC_PS(0); // select no clock
+    FTM_CLK_CSC = FTM_CSC_MSB | FTM_CSC_ELSB;
+    FTM_CLK_CNT = 0;
+    FTM_CLK_MOD = mod;
+    FTM_CLK_CV  = 1 + (mod >> 1); // always 50% duty cycle
+    FTM_CLK_SC  = FTM_SC_CLKS(clks) | FTM_SC_PS(prescale); // select system clock, no prescaler
 
     // compute the frequency actually configured:
     clk_slow_freq = (float)(basefreq >> prescale) / (float)(1 + mod);
