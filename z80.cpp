@@ -812,12 +812,12 @@ void z80_show_regs(void)
     //                    stack. capture regs as usual. then IRET and JP to PC-1, then 
     //                    feed it a HALT when it fetches PC-1. it will HALT with PC correct.
 
-    // if we're partway through an M1 cycle, allow it to complete first
-    while(z80_m1_asserted()){
-        if(!z80_clk_is_independent())
-            z80_clock_pulse();
-        handle_z80_bus(); 
-    }
+    // // if we're partway through an M1 cycle, allow it to complete first
+    // while(z80_m1_asserted()){
+    //     if(!z80_clk_is_independent())
+    //         z80_clock_pulse();
+    //     handle_z80_bus(); 
+    // }
 
     // wait for a new M1 cycle to start
     while(!z80_m1_asserted()){
