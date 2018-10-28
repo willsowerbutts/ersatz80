@@ -1,6 +1,6 @@
 BOARD_TAG    = teensy35
 F_CPU        = 120000000
-ARDUINO_DIR  = $(HOME)/arduino-1.8.5
+ARDUINO_DIR  = $(HOME)/arduino-1.8.7
 ARDUINO_LIB_PATH = $(ARDUINO_DIR)/hardware/teensy/avr/libraries
 ARDUINO_LIBS = SPI SdFat
 
@@ -13,6 +13,6 @@ rom.cpp:	monitor.asm
 
 
 all:	rom.cpp $(TARGET_HEX)
-		~/arduino-1.8.5/teensy_loader_cli --mcu=mk64fx512 -v -s ./build-teensy35/ersatz80.hex
+		$(ARDUINO_DIR)/teensy_loader_cli --mcu=mk64fx512 -v -s ./build-teensy35/ersatz80.hex
 		sleep 1
 		picocom -b 9600 -f n /dev/ttyACM0
