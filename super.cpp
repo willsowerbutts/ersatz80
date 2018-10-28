@@ -234,15 +234,20 @@ void super_loadfile(int argc, char *argv[])
     int r;
     if(argc < 2){
         report("error: syntax: loadfile [filename] [address]\r\n"
-               "note: address is in hex (do not use 0x prefix)\r\n");
+                "note: address is in hex\r\n");
     }else {
-      uint16_t address = strtol(argv[1], NULL, 16);
-      report("loadfile \"%s\": ", argv[0]);
-      r = load_file_to_sram(argv[0], address);
-      if(r < 0)
-          report("failed\r\n");
-      else
-          report("loaded %d bytes\r\n", r);
+        char *endptr = NULL;
+        uint16_t address = strtol(argv[1], &endptr, 16);
+        if((address == 0 && !endptr) || (*endptr != 0 && !isspace(*endptr))){
+            report("error: bad load address\r\n");
+        }else{
+            report("loadfile \"%s\" at 0x%04x: ", argv[0], address);
+            r = load_file_to_sram(argv[0], address);
+            if(r < 0)
+                report("failed\r\n");
+            else
+                report("loaded %d bytes\r\n", r);
+        }
     }
 }
 
