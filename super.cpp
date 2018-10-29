@@ -34,6 +34,10 @@ void super_disk(int argc, char *argv[]);
 void super_sync(int argc, char *argv[]);
 void super_format(int argc, char *argv[]);
 void super_help(int argc, char *argv[]);
+void super_in(int argc, char *argv[]);
+void super_out(int argc, char *argv[]);
+void super_run(int argc, char *argv[]);
+void super_exec(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "help",       &super_help     }, // despite the name, not actually super helpful
@@ -60,10 +64,30 @@ const cmd_entry_t cmd_table[] = {
     { "disks",      &super_disk     },
     { "format",     &super_format   },
     { "sync",       &super_sync     },
+    { "in",         &super_in       },
+    { "out",        &super_out      },
+    { "run",        &super_run      },
+    { "exec",       &super_exec     },
 
     // list terminator:
     { NULL,         NULL            }
 };
+
+bool readint16(const char *arg, uint16_t *value)
+{
+    char *endptr = NULL;
+    uint16_t val;
+
+    *value = 0;
+    val = strtol(arg, &endptr, 16);
+    if(val == 0 && endptr == NULL)
+        return false;
+    if(*endptr != 0 && !isspace(*endptr))
+        return false;
+
+    *value = val;
+    return true;
+}
 
 bool supervisor_menu_key_in(unsigned char keypress)
 {
@@ -236,9 +260,8 @@ void super_loadfile(int argc, char *argv[])
         report("error: syntax: loadfile [filename] [address]\r\n"
                 "note: address is in hex\r\n");
     }else {
-        char *endptr = NULL;
-        uint16_t address = strtol(argv[1], &endptr, 16);
-        if((address == 0 && !endptr) || (*endptr != 0 && !isspace(*endptr))){
+        uint16_t address;
+        if(!readint16(argv[1], &address)){
             report("error: bad load address\r\n");
         }else{
             report("loadfile \"%s\" at 0x%04x: ", argv[0], address);
@@ -365,7 +388,6 @@ void super_cp(int argc, char *argv[])
     }
 }
 
-
 void super_mv(int argc, char *argv[])
 {
     if(argc != 2){
@@ -388,3 +410,77 @@ void super_help(int argc, char *argv[])
     }
     report("\r\n");
 }
+
+void super_in(int argc, char *argv[])
+{
+    if(argc != 1){
+        report("error: syntax: in [port]\r\n");
+    }else {
+        uint16_t port, value;
+        if(!readint16(argv[0], &port)){
+            report("error: bad port address\r\n");
+        }else{
+            begin_dma();
+            value = iodevice_read(port);
+            end_dma();
+            report("input from I/O port 0x%04x: 0x%02x\r\n", port, value);
+        }
+    }
+}
+
+void super_out(int argc, char *argv[])
+{
+    if(argc != 2){
+        report("error: syntax: out [port] [value]\r\n");
+    }else {
+        uint16_t port, value;
+        if(!readint16(argv[0], &port)){
+            report("error: bad port address\r\n");
+        }else{
+            if(!readint16(argv[1], &value) || value > 0xFF)
+                report("error: bad value\r\n");
+            else{
+                begin_dma();
+                iodevice_write(port, value);
+                end_dma();
+            }
+        }
+    }
+}
+
+void super_run(int argc, char *argv[])
+{
+    if(argc != 1){
+        report("error: syntax: run [address]\r\n");
+    }else {
+        uint16_t address;
+        if(!readint16(argv[0], &address)){
+            report("error: bad address\r\n");
+        }else{
+            z80_set_pc(address);
+        }
+    }
+}
+
+void super_exec(int argc, char *argv[])
+{
+    if(argc != 1){
+        report("error: syntax: exec [filename]\r\n");
+        return;
+    }
+
+    SdBaseFile file;
+
+    if(!file.open(&sdcard, argv[0], O_RDONLY)){
+        report("exec: Cannot open \"%s\"\r\n", argv[0]);
+        return;
+    }
+    // note that we shortly will overwrite the strings that argv[] point to, so can't use argv[0] again
+    
+    while(file.fgets(supervisor_cmd_buffer, SBUFLEN) > 0){
+        execute_supervisor_command(supervisor_cmd_buffer);
+    }
+
+    file.close();
+}
+

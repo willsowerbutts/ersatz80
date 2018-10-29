@@ -123,6 +123,7 @@ void z80_bus_trace_state(void);
 void handle_z80_bus(void);
 void begin_dma(void);
 void end_dma(void);
+void z80_set_pc(uint16_t address);
 
 extern uint16_t user_led;
 extern bool z80_reset;

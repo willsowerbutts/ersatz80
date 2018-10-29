@@ -867,6 +867,45 @@ uint16_t z80_send_instruction_read_stack(uint8_t opcode)
     return r;
 }
 
+void z80_set_pc(uint16_t address) // this has a lot in common with z80_show_regs(), consider refactoring
+{
+    int z80_bus_trace_stash;
+    bool ram_ce_stash;
+    z80_clk_pause();
+
+    // wait for any current M1 to end (perhaps z80_clk_pause should do this?)
+    while(z80_m1_asserted()){
+        if(!z80_clk_is_independent())
+            z80_clock_pulse();
+        handle_z80_bus(); 
+    }
+
+    // wait for a new M1 cycle to start
+    while(!z80_m1_asserted()){
+        if(!z80_clk_is_independent())
+            z80_clock_pulse();
+        handle_z80_bus(); 
+    }
+
+    // turn off bus tracing before we blow its tiny little mind
+    z80_bus_trace_stash = z80_bus_trace;
+    z80_bus_trace = 0;
+
+    // disable the RAM so we can control the data bus
+    ram_ce_stash = ram_ce;
+    ram_ce = false;
+    shift_register_update();
+
+    z80_send_instruction(0xC3);                  // JP xxxx
+    z80_send_instruction(address & 0xFF);        //  ...
+    z80_send_instruction(address >> 8);          //  ...
+
+    ram_ce = ram_ce_stash;
+    shift_register_update();
+    z80_bus_trace = z80_bus_trace_stash;
+    z80_clk_resume();
+}
+
 void z80_show_regs(void)
 {
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
