@@ -252,7 +252,7 @@ void super_reset(int argc, char *argv[])
     z80_do_reset();
 }
 
-
+// loadfile could be improved: take a file start offset and a byte count to load?
 void super_loadfile(int argc, char *argv[])
 {
     int r;

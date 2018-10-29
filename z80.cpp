@@ -844,18 +844,18 @@ uint8_t z80_memory_read(uint16_t address)
     return byte;
 }
 
-void z80_send_instruction(uint8_t opcode)
+void z80_feed_byte(uint8_t opcode)
 {
     while(!(z80_mreq_asserted() && z80_rd_asserted()))
         z80_clock_pulse();
     z80_clock_pulse_drive_data(opcode);
 }
 
-uint16_t z80_send_instruction_read_stack(uint8_t opcode)
+uint16_t z80_feed_byte_read_stack(uint8_t opcode)
 {
     uint16_t r;
 
-    z80_send_instruction(opcode);
+    z80_feed_byte(opcode);
     // now it will write to the stack
     while(!(z80_mreq_asserted() && z80_wr_asserted()))
         z80_clock_pulse();
@@ -896,9 +896,9 @@ void z80_set_pc(uint16_t address) // this has a lot in common with z80_show_regs
     ram_ce = false;
     shift_register_update();
 
-    z80_send_instruction(0xC3);                  // JP xxxx
-    z80_send_instruction(address & 0xFF);        //  ...
-    z80_send_instruction(address >> 8);          //  ...
+    z80_feed_byte(0xC3);                  // JP xxxx
+    z80_feed_byte(address & 0xFF);        //  ...
+    z80_feed_byte(address >> 8);          //  ...
 
     ram_ce = ram_ce_stash;
     shift_register_update();
@@ -959,35 +959,35 @@ void z80_show_regs(void)
         z80_clock_pulse();
     af = (af << 8) | z80_bus_data();
 
-    bc = z80_send_instruction_read_stack(0xC5);  // PUSH BC
-    de = z80_send_instruction_read_stack(0xD5);  // PUSH DE
-    hl = z80_send_instruction_read_stack(0xE5);  // PUSH HL
-    z80_send_instruction(0x08);                  // EX AF, AF'
-    af_ = z80_send_instruction_read_stack(0xF5); // PUSH AF
-    z80_send_instruction(0x08);                  // EX AF, AF' again (swap back)
-    z80_send_instruction(0xD9);                  // EXX
-    bc_ = z80_send_instruction_read_stack(0xC5); // PUSH BC
-    de_ = z80_send_instruction_read_stack(0xD5); // PUSH DE
-    hl_ = z80_send_instruction_read_stack(0xE5); // PUSH HL
-    z80_send_instruction(0xD9);                  // EXX again (swap back)
-    z80_send_instruction(0xDD);                  // IX prefix
-    ix  = z80_send_instruction_read_stack(0xE5); // PUSH IX
-    z80_send_instruction(0xFD);                  // IY prefix
-    iy  = z80_send_instruction_read_stack(0xE5); // PUSH IY
-    z80_send_instruction(0xED);                  // ED prefix
-    z80_send_instruction(0x57);                  // LD A,I - note this affects the flags register
-    i = z80_send_instruction_read_stack(0xF5) >> 8; // PUSH AF - I is now in A (high bits)
+    bc = z80_feed_byte_read_stack(0xC5);  // PUSH BC
+    de = z80_feed_byte_read_stack(0xD5);  // PUSH DE
+    hl = z80_feed_byte_read_stack(0xE5);  // PUSH HL
+    z80_feed_byte(0x08);                  // EX AF, AF'
+    af_ = z80_feed_byte_read_stack(0xF5); // PUSH AF
+    z80_feed_byte(0x08);                  // EX AF, AF' again (swap back)
+    z80_feed_byte(0xD9);                  // EXX
+    bc_ = z80_feed_byte_read_stack(0xC5); // PUSH BC
+    de_ = z80_feed_byte_read_stack(0xD5); // PUSH DE
+    hl_ = z80_feed_byte_read_stack(0xE5); // PUSH HL
+    z80_feed_byte(0xD9);                  // EXX again (swap back)
+    z80_feed_byte(0xDD);                  // IX prefix
+    ix  = z80_feed_byte_read_stack(0xE5); // PUSH IX
+    z80_feed_byte(0xFD);                  // IY prefix
+    iy  = z80_feed_byte_read_stack(0xE5); // PUSH IY
+    z80_feed_byte(0xED);                  // ED prefix
+    z80_feed_byte(0x57);                  // LD A,I - note this affects the flags register
+    i = z80_feed_byte_read_stack(0xF5) >> 8; // PUSH AF - I is now in A (high bits)
 
     // finally we need to put AF, SP and PC back as they were before our tinkering
-    z80_send_instruction(0xF1);                  // POP af
-    z80_send_instruction(af & 0xFF);             //  ...
-    z80_send_instruction(af >> 8);               //  ...
-    z80_send_instruction(0x31);                  // LD SP, xxxx
-    z80_send_instruction(sp & 0xFF);             //  ...
-    z80_send_instruction(sp >> 8);               //  ...
-    z80_send_instruction(0xC3);                  // JP xxxx
-    z80_send_instruction(pc & 0xFF);             //  ...
-    z80_send_instruction(pc >> 8);               //  ...
+    z80_feed_byte(0xF1);                  // POP af
+    z80_feed_byte(af & 0xFF);             //  ...
+    z80_feed_byte(af >> 8);               //  ...
+    z80_feed_byte(0x31);                  // LD SP, xxxx
+    z80_feed_byte(sp & 0xFF);             //  ...
+    z80_feed_byte(sp >> 8);               //  ...
+    z80_feed_byte(0xC3);                  // JP xxxx
+    z80_feed_byte(pc & 0xFF);             //  ...
+    z80_feed_byte(pc >> 8);               //  ...
 
     ram_ce = ram_ce_stash;                       // enable SRAM (if it was enabled before)
     shift_register_update();
