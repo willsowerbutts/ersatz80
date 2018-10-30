@@ -180,7 +180,7 @@ void disk_unmount(int nr)
     }
 }
 
-void disk_mount(int nr)
+void disk_mount(int nr, bool readwrite=true)
 {
     bool okay;
 
@@ -191,7 +191,7 @@ void disk_mount(int nr)
         report("disk %d: cannot mount file \"%s\": already mounted.\r\n", nr, disk[nr].filename);
         okay = false;
     }else{
-        okay = disk[nr].file.open(&sdcard, disk[nr].filename, O_RDWR);
+        okay = disk[nr].file.open(&sdcard, disk[nr].filename, readwrite ? O_RDWR : O_RDONLY);
         if(!okay){
             report("disk %d: cannot mount file \"%s\": open failed.\r\n", nr, disk[nr].filename);
         }else{ // okay==true (for now!)
@@ -209,7 +209,7 @@ void disk_mount(int nr)
     disk[nr].sector_number = 0;
     disk[nr].error = !okay;
     disk[nr].mounted = okay;
-    disk[nr].writable = okay;
+    disk[nr].writable = okay && readwrite;
     if(!okay)
         disk[nr].size_bytes = 0;
 }

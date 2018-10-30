@@ -26,7 +26,7 @@ bool    disk_rm(const char *victim);
 bool    disk_cp(const char *source, const char *dest);
 bool    disk_mv(const char *source, const char *dest);
 void    disk_unmount(int nr);
-void    disk_mount(int nr);
+void    disk_mount(int nr, bool readwrite=true);
 
 // WRS: can also try using SdFatSdio here -- it may be slower? have not benchmarked.
 extern SdFatSdioEX sdcard;

@@ -486,8 +486,9 @@ void super_exec(int argc, char *argv[])
 void super_mount(int argc, char *argv[])
 {
     uint16_t disknum;
-    if(argc < 1 || argc > 2){
-        report("error: syntax: mount [disknum] <filename>\r\n");
+    bool readwrite = true;
+    if(argc < 1 || argc > 3){
+        report("error: syntax: mount [disknum] <filename> <ro|rw>\r\n");
         return;
     }
     if(!readint16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
@@ -495,11 +496,21 @@ void super_mount(int argc, char *argv[])
         return;
     }
     disk_unmount(disknum);
+    if(argc >= 3){
+        if(strcasecmp(argv[2], "ro") == 0)
+            readwrite = false;
+        else if(strcasecmp(argv[2], "rw") == 0)
+            readwrite = true;
+        else{
+            report("error: bad read-only/read-write flag\r\n");
+            return;
+        }
+    }
     if(argc >= 2){
         strncpy(disk[disknum].filename, argv[1], MAX_FILENAME_LENGTH);
         disk[disknum].filename[MAX_FILENAME_LENGTH-1] = 0; // ensure string is terminated
     }
-    disk_mount(disknum);
+    disk_mount(disknum, readwrite);
 }
 
 void super_umount(int argc, char *argv[])
