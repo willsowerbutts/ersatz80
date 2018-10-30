@@ -85,4 +85,4 @@ For revision 2 PCBs you must comment out "#define ERSATZ80_PCB_REV1" in z80.h
 
 It is possible to fit faster oscillators at U10 and overclock the Z80 CPU.
 Using a Zilog Z84C0020PEG CMOS Z80 CPU it has been determined that oscillators
-up to 24MHz (20% overclock) give reliable operation, while 25MHz was too fast.
+up to 22MHz (10% overclock) give reliable operation, while 24MHz was too fast.
