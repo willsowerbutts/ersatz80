@@ -38,6 +38,8 @@ void super_in(int argc, char *argv[]);
 void super_out(int argc, char *argv[]);
 void super_run(int argc, char *argv[]);
 void super_exec(int argc, char *argv[]);
+void super_mount(int argc, char *argv[]);
+void super_umount(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "help",       &super_help     }, // despite the name, not actually super helpful
@@ -62,6 +64,9 @@ const cmd_entry_t cmd_table[] = {
     { "copy",       &super_cp       },
     { "disk",       &super_disk     },
     { "disks",      &super_disk     },
+    { "mount",      &super_mount    },
+    { "unmount",    &super_umount   },
+    { "umount",     &super_umount   },
     { "format",     &super_format   },
     { "sync",       &super_sync     },
     { "in",         &super_in       },
@@ -73,13 +78,13 @@ const cmd_entry_t cmd_table[] = {
     { NULL,         NULL            }
 };
 
-bool readint16(const char *arg, uint16_t *value)
+bool readint16(const char *arg, uint16_t *value, int base)
 {
     char *endptr = NULL;
     uint16_t val;
 
     *value = 0;
-    val = strtol(arg, &endptr, 16);
+    val = strtol(arg, &endptr, base);
     if(val == 0 && endptr == NULL)
         return false;
     if(*endptr != 0 && !isspace(*endptr))
@@ -261,7 +266,7 @@ void super_loadfile(int argc, char *argv[])
                 "note: address is in hex\r\n");
     }else {
         uint16_t address;
-        if(!readint16(argv[1], &address)){
+        if(!readint16(argv[1], &address, 16)){
             report("error: bad load address\r\n");
         }else{
             report("loadfile \"%s\" at 0x%04x: ", argv[0], address);
@@ -289,24 +294,18 @@ void super_trace(int argc, char *argv[])
 
 void super_disk(int argc, char *argv[])
 {
-    if(argc == 0){
-        for(int d=0; d<NUM_DISK_DRIVES; d++){
-            report("Disk %d: ", d);
-            if(disk[d].mounted){
-                char filename[MAX_FILENAME_LENGTH];
-                disk[d].file.getName(filename, MAX_FILENAME_LENGTH);
-                report("filename \"%s\", %.3fMB, %d x %d byte sectors, %s\r\n",
-                        filename,
-                        (float)disk[d].size_bytes / (1024.0 * 1024.0),
-                        disk[d].size_bytes >> disk[d].sector_size_log,
-                        1 << disk[d].sector_size_log,
-                        disk[d].writable ? "read-write" : "read-only");
-            }else{
-                report("unmounted\r\n");
-            }
+    for(int d=0; d<NUM_DISK_DRIVES; d++){
+        report("Disk %d: filename \"%s\", ", d, disk[d].filename);
+        if(disk[d].mounted){
+            report("mounted, %.3fMB, %d x %d byte sectors, %s\r\n",
+                    (float)disk[d].size_bytes / (1024.0 * 1024.0),
+                    disk[d].size_bytes >> disk[d].sector_size_log,
+                    1 << disk[d].sector_size_log,
+                    disk[d].writable ? "read-write" : "read-only");
+        }else{
+            report("unmounted\r\n");
         }
     }
-    // TODO: support for mount, unmount etc
 }
 
 void super_ls(int argc, char *argv[])
@@ -417,7 +416,7 @@ void super_in(int argc, char *argv[])
         report("error: syntax: in [port]\r\n");
     }else {
         uint16_t port, value;
-        if(!readint16(argv[0], &port)){
+        if(!readint16(argv[0], &port, 16)){
             report("error: bad port address\r\n");
         }else{
             begin_dma();
@@ -434,10 +433,10 @@ void super_out(int argc, char *argv[])
         report("error: syntax: out [port] [value]\r\n");
     }else {
         uint16_t port, value;
-        if(!readint16(argv[0], &port)){
+        if(!readint16(argv[0], &port, 16)){
             report("error: bad port address\r\n");
         }else{
-            if(!readint16(argv[1], &value) || value > 0xFF)
+            if(!readint16(argv[1], &value, 16) || value > 0xFF)
                 report("error: bad value\r\n");
             else{
                 begin_dma();
@@ -454,7 +453,7 @@ void super_run(int argc, char *argv[])
         report("error: syntax: run [address]\r\n");
     }else {
         uint16_t address;
-        if(!readint16(argv[0], &address)){
+        if(!readint16(argv[0], &address, 16)){
             report("error: bad address\r\n");
         }else{
             z80_set_pc(address);
@@ -484,3 +483,35 @@ void super_exec(int argc, char *argv[])
     file.close();
 }
 
+void super_mount(int argc, char *argv[])
+{
+    uint16_t disknum;
+    if(argc < 1 || argc > 2){
+        report("error: syntax: mount [disknum] <filename>\r\n");
+        return;
+    }
+    if(!readint16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
+        report("error: bad disk number (0--%d)\r\n", NUM_DISK_DRIVES-1);
+        return;
+    }
+    disk_unmount(disknum);
+    if(argc >= 2){
+        strncpy(disk[disknum].filename, argv[1], MAX_FILENAME_LENGTH);
+        disk[disknum].filename[MAX_FILENAME_LENGTH-1] = 0; // ensure string is terminated
+    }
+    disk_mount(disknum);
+}
+
+void super_umount(int argc, char *argv[])
+{
+    uint16_t disknum;
+    if(argc != 1){
+        report("error: syntax: unmount [disknum]\r\n");
+        return;
+    }
+    if(!readint16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
+        report("error: bad disk number (0--%d)\r\n", NUM_DISK_DRIVES-1);
+        return;
+    }
+    disk_unmount(disknum);
+}

@@ -25,12 +25,15 @@ bool    disk_format(const char *filename, uint32_t bytes);
 bool    disk_rm(const char *victim);
 bool    disk_cp(const char *source, const char *dest);
 bool    disk_mv(const char *source, const char *dest);
+void    disk_unmount(int nr);
+void    disk_mount(int nr);
 
 // WRS: can also try using SdFatSdio here -- it may be slower? have not benchmarked.
 extern SdFatSdioEX sdcard;
 
 typedef struct {
     SdBaseFile file;
+    char       filename[MAX_FILENAME_LENGTH];
     uint32_t   sector_number;
     uint32_t   dma_address;
     uint32_t   size_bytes;

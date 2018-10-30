@@ -168,51 +168,50 @@ void disk_transfer(bool write)
     end_dma();
 }
 
-void disk_unmount(void)
+void disk_unmount(int nr)
 {
-    disk[disk_selected].file.sync();
-    disk[disk_selected].file.close();
-    disk[disk_selected].mounted = false;
-    disk[disk_selected].writable = false;
-    disk[disk_selected].error = true; // error=true always for unmounted drives
-    disk[disk_selected].size_bytes = 0;
+    if(disk[nr].mounted){
+        disk[nr].file.sync();
+        disk[nr].file.close();
+        disk[nr].mounted = false;
+        disk[nr].writable = false;
+        disk[nr].error = true; // error=true always for unmounted drives
+        disk[nr].size_bytes = 0;
+    }
 }
 
-void disk_mount(void)
+void disk_mount(int nr)
 {
     bool okay;
-    char filename[64];
 
-    sprintf(filename, "test%d.dsk", disk_selected); // we need to read our params from the DMA address. being lazy for now.
+    if(disk[nr].mounted)
+        disk_unmount(nr);
 
-    if(disk[disk_selected].mounted)
-        disk_unmount();
-
-    if(disk_is_file_mounted(filename)){
-        report("disk %d: cannot mount file \"%s\": already mounted.\r\n", disk_selected, filename);
+    if(disk_is_file_mounted(disk[nr].filename)){
+        report("disk %d: cannot mount file \"%s\": already mounted.\r\n", nr, disk[nr].filename);
         okay = false;
     }else{
-        okay = disk[disk_selected].file.open(&sdcard, filename, O_RDWR);
+        okay = disk[nr].file.open(&sdcard, disk[nr].filename, O_RDWR);
         if(!okay){
-            report("disk %d: cannot mount file \"%s\": open failed.\r\n", disk_selected, filename);
+            report("disk %d: cannot mount file \"%s\": open failed.\r\n", nr, disk[nr].filename);
         }else{ // okay==true (for now!)
-            disk[disk_selected].size_bytes = disk[disk_selected].file.fileSize();
-            if(disk[disk_selected].size_bytes & 0x3FF)
-                report("disk %d: WARNING: size of \"%s\" is not a multiple of 1024\r\n", disk_selected, filename);
-            if(disk[disk_selected].size_bytes == 0){
-                report("disk %d: cannot mount file \"%s\": zero bytes length\r\n", disk_selected, filename);
-                disk[disk_selected].file.close();
+            disk[nr].size_bytes = disk[nr].file.fileSize();
+            if(disk[nr].size_bytes & 0x3FF)
+                report("disk %d: WARNING: size of \"%s\" is not a multiple of 1024\r\n", nr, disk[nr].filename);
+            if(disk[nr].size_bytes == 0){
+                report("disk %d: cannot mount file \"%s\": zero bytes length\r\n", nr, disk[nr].filename);
+                disk[nr].file.close();
                 okay = false;
             }
         }
     }
     // finalise
-    disk[disk_selected].sector_number = 0;
-    disk[disk_selected].error = !okay;
-    disk[disk_selected].mounted = okay;
-    disk[disk_selected].writable = okay;
+    disk[nr].sector_number = 0;
+    disk[nr].error = !okay;
+    disk[nr].mounted = okay;
+    disk[nr].writable = okay;
     if(!okay)
-        disk[disk_selected].size_bytes = 0;
+        disk[nr].size_bytes = 0;
 }
 
 void disk_seek_final_sector(bool exact_device_size)
@@ -246,10 +245,10 @@ void disk_command_write(uint16_t address, uint8_t value)
             disk_transfer(true);
             break;
         case 0x22: // perform mount operation
-            disk_mount();
+            disk_mount(disk_selected);
             break;
         case 0x23: // perform unmount operation
-            disk_unmount();
+            disk_unmount(disk_selected);
             break;
         case 0x24: // seek to final sector
             disk_seek_final_sector(false);
@@ -284,7 +283,8 @@ bool disk_is_file_mounted(const char *new_filename)
         if(disk[d].mounted){
             disk[d].file.getName(filename, MAX_FILENAME_LENGTH);
             // hmm is this really adequate? what about .., multiple path separators, 8.3 vs long file name etc?
-            if(strcasecmp(new_filename, filename) == 0)
+            // do we need to call getName() now we store the filename directly?
+            if(strcasecmp(new_filename, filename) == 0 || strcasecmp(new_filename, disk[d].filename) == 0)
                 return true;
         }
     }
@@ -302,6 +302,7 @@ void disk_init(void) {
         disk[d].error = true;       // error=true always for unmounted drives
         disk[d].writable = false;
         disk[d].mounted = false;
+        snprintf(disk[d].filename, MAX_FILENAME_LENGTH, "test%d.dsk", d);
     }
 
     SdioCard *card;
