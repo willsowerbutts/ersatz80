@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 // uncomment this line for rev1 PCBs only:
-#define ERSATZ80_PCB_REV1
+// #define ERSATZ80_PCB_REV1
 
 #ifdef ERSATZ80_PCB_REV1
 // 2018-09-03 PCB rev1
