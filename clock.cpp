@@ -11,6 +11,7 @@
 #define FTM_CLK_MOD FTM3_MOD
 #define FTM_CLK_CV  FTM3_C2V
 #define FTM_CLK_SC  FTM3_SC
+#define FTM_PORT_PCR_MUX 4
 #else
 // On rev2 PCBs FTM2 channel 0 drives CLK_STROBE
 #define FTM_CLK_CSC FTM2_C0SC
@@ -18,6 +19,7 @@
 #define FTM_CLK_MOD FTM2_MOD
 #define FTM_CLK_CV  FTM2_C0V
 #define FTM_CLK_SC  FTM2_SC
+#define FTM_PORT_PCR_MUX 3
 #endif
 
 void z80_slow_clock_set_frequency(float frequency);
@@ -54,7 +56,7 @@ void z80_clk_slow_start(float frequency)
 {
     assert(clk_mode == CLK_STOPPED || clk_mode == CLK_SUPERVISED);
     // reconfigure the output pin to connect it to the FTM
-    *portConfigRegister(CLK_STROBE) = PORT_PCR_MUX(4) | PORT_PCR_DSE | PORT_PCR_SRE;
+    *portConfigRegister(CLK_STROBE) = PORT_PCR_MUX(FTM_PORT_PCR_MUX) | PORT_PCR_DSE | PORT_PCR_SRE;
     z80_slow_clock_set_frequency(frequency);
     // select a running clock
     clk_mode = CLK_SLOW;
