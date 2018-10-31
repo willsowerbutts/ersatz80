@@ -180,7 +180,7 @@ void disk_unmount(int nr)
     }
 }
 
-void disk_mount(int nr, bool readwrite=true)
+void disk_mount(int nr, bool readwrite)
 {
     bool okay;
 

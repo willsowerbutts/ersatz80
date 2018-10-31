@@ -94,7 +94,7 @@ const char *bit_ops[] = {"BIT", "RES", "SET"};
 /**
  * disassemble a single instruction
  */
-uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
+void z80ctrl_disasm(uint8_t (*input)(), char *output)
 {
     uint8_t opcode = 0;
     uint8_t prefix = 0;
@@ -134,22 +134,16 @@ uint8_t z80ctrl_disasm(uint8_t (*input)(), char *output)
     uint8_t zy = ((z & 3) << 2) | (y & 3);  // zy = {opcode[1:0], opcode[4:3]}
 
     // choose registers based on index mode and y/z/p opcode fields
-    const char *rp, *hli, *ry, *ryi, *rz, *rzi;
+    const char *rp, *hli, *ry, *rz;
     rp = register_pairs[p == HL ? im : p];
     ry = registers[y];
     rz = registers[z];
     if (im == IX) {
         hli = register_pairs[IX];
-        ryi = registers[y == H ? IXH : y == L ? IXL : y];
-        rzi = registers[z == H ? IXH : z == L ? IXL : z];
     } else if (im == IY) {
         hli = register_pairs[IY];
-        ryi = registers[y == H ? IYH : y == L ? IYL : y];
-        rzi = registers[z == H ? IYH : z == L ? IYL : z];
     } else {
         hli = register_pairs[HL];
-        ryi = ry;
-        rzi = rz;
     }
 
     // Big ugly nested if tree to decode opcode
