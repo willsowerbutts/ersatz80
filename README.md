@@ -8,6 +8,8 @@ a timer, interrupt controller, UART and disk controller with DMA support. The
 disk controller uses disk images in a FAT filesystem stored on a microSD 
 card.
 
+![Photo of ersatz80 rev2](photo-rev2.jpg)
+
 ## Brief instructions
 
 Assemble and populate the PCB. Program the Teensy with the firmware. Insert a 
