@@ -11,7 +11,7 @@ void z80_clk_set_independent(float frequency);
 void z80_clk_set_supervised(float frequency);
 float z80_clk_get_frequency(void);
 void z80_clk_set_supervised(bool supervised);
-void z80_clk_pause(void);
+void z80_clk_pause(bool at_instruction_start=false);
 void z80_clk_resume(void);
 void z80_clock_pulse(void);
 bool z80_clk_is_independent(void); // do we need to manually jiggle the clock line?

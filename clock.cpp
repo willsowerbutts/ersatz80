@@ -97,7 +97,7 @@ void z80_slow_clock_set_frequency(float frequency)
     uint32_t clks, prescale, mod, basefreq;
 
     assert(clk_mode == CLK_STOPPED || clk_mode == CLK_SUPERVISED);
- 
+
     if(frequency >= CLK_SLOW_MAX_FREQUENCY) // limit ourselves to the speeds we can actually generate!
         frequency = CLK_SLOW_MAX_FREQUENCY;
 
@@ -241,10 +241,26 @@ void z80_clk_set_supervised(float frequency)
     clk_mode = CLK_SUPERVISED;
 }
 
-void z80_clk_pause(void)
+void z80_clk_pause(bool at_instruction_start)
 {
     paused_clk_mode = clk_mode;
     z80_clk_stop();
+
+    if(at_instruction_start){
+        // wait for any current M1 cycle to end
+        while(z80_m1_asserted()){
+            if(!z80_clk_is_independent())
+                z80_clock_pulse();
+            handle_z80_bus();
+        }
+
+        // wait for a new M1 cycle to start
+        while(!z80_m1_asserted()){
+            if(!z80_clk_is_independent())
+                z80_clock_pulse();
+            handle_z80_bus();
+        }
+    }
 }
 
 void z80_clk_resume(void)
