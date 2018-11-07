@@ -92,6 +92,23 @@ const int Z80_HALT              = 26;       // GPIO A 14
 const int Z80_WAIT              = 28;       // GPIO A 16
 #endif
 
+enum z80_register_t {
+    Z80_REG_AF,
+    Z80_REG_BC,
+    Z80_REG_DE,
+    Z80_REG_HL,
+    Z80_REG_IX,
+    Z80_REG_IY,
+    Z80_REG_AF_ALT,
+    Z80_REG_BC_ALT,
+    Z80_REG_DE_ALT,
+    Z80_REG_HL_ALT,
+    Z80_REG_PC,
+    Z80_REG_SP,
+    Z80_REG_I
+};
+void z80_set_register(z80_register_t reg, uint16_t value);
+
 void shift_register_update(void);
 void z80_bus_master(void);
 void z80_bus_slave(void);

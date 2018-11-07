@@ -456,7 +456,7 @@ void super_run(int argc, char *argv[])
         if(!readint16(argv[0], &address, 16)){
             report("error: bad address\r\n");
         }else{
-            z80_set_pc(address);
+            z80_set_register(Z80_REG_PC, address);
         }
     }
 }

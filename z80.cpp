@@ -20,7 +20,7 @@ uint8_t ram_pages = 0;
 void shift_register_update(void)
 {
     unsigned int bit = 0x8000;
-    unsigned int output = 
+    unsigned int output =
         (user_led << 4) |
         (ram_ce    ? 0 : 8) |
         (z80_irq   ? 0 : 4) |
@@ -67,7 +67,7 @@ void z80_bus_master(void)
     GPIOE_PDDR |= ((1<<24) | (1<<25) | (1<<26));
 #else
     GPIOB_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) | (1<<16) | (1<<17));
-    GPIOC_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | 
+    GPIOC_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) |
                    (1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOD_PDDR |= ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
 #endif
@@ -115,7 +115,7 @@ void z80_bus_slave(void)
     GPIOE_PDDR &=~((1<<24) | (1<<25) | (1<<26));
 #else
     GPIOB_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) | (1<<16) | (1<<17));
-    GPIOC_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | 
+    GPIOC_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) |
                    (1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOD_PDDR &=~((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
 #endif
@@ -209,7 +209,7 @@ void z80_setup(void)
     z80_bus_slave();
 #ifdef KINETISK
     // note SRE = slew rate limiting
-    // we set the config ONCE ONLY, suitable for both input and output. we need to 
+    // we set the config ONCE ONLY, suitable for both input and output. we need to
     // avoid using pinMode() on these registers as it will overwrite our config!
     *portConfigRegister(Z80_A0  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     *portConfigRegister(Z80_A1  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
@@ -249,7 +249,7 @@ void z80_setup(void)
     GPIOE_PSOR = ((1<<24) | (1<<25) | (1<<26));
 #else
     GPIOB_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<10) | (1<<11) | (1<<16) | (1<<17));
-    GPIOC_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) | 
+    GPIOC_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7) |
                    (1<<8) | (1<<9) | (1<<10) | (1<<11));
     GPIOD_PSOR = ((1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5) | (1<<6) | (1<<7));
 #endif
@@ -263,7 +263,7 @@ void z80_setup(void)
     // system
     pinMode(MMU_EW, OUTPUT);
     pinMode(WAIT_RESET, OUTPUT);
-    
+
     digitalWrite(Z80_BUSRQ, 1);
     digitalWrite(MMU_EW, 1);
     digitalWrite(WAIT_RESET, 1);
@@ -368,7 +368,7 @@ uint8_t z80_bus_data(void)
            ((gpio_c & (1<< 9  )) >> 9  << 4) |
            ((gpio_c & (1<< 10 )) >> 10 << 5) |
            ((gpio_c & (1<< 11 )) >> 11 << 6) |
-           ((gpio_a & (1<< 17 )) >> 17 << 7); 
+           ((gpio_a & (1<< 17 )) >> 17 << 7);
 #else
     return (GPIOD_PDIR & 0xFF);
 #endif
@@ -473,7 +473,7 @@ void z80_clock_pulse_while_writing(void)
 
 void z80_do_reset(void)
 {
-    z80_clk_pause();
+    z80_clk_pause(false);
     z80_set_reset(true);
     z80_set_release_wait(true);
     for(int i=0; i<10; i++){ // Z80 requires at least 3 clocks to fully reset
@@ -647,6 +647,7 @@ void z80_memory_write(uint16_t address, uint8_t data)
 #ifdef KINETISK
     *portOutputRegister(Z80_MREQ) = 0;
     *portOutputRegister(Z80_WR) = 0;
+    delayMicroseconds(1);
     *portOutputRegister(Z80_WR) = 1;
     *portOutputRegister(Z80_MREQ) = 1;
 #else
@@ -830,6 +831,7 @@ uint8_t z80_memory_read(uint16_t address)
 #ifdef KINETISK
     *portOutputRegister(Z80_MREQ) = 0;
     *portOutputRegister(Z80_RD) = 0;
+    delayMicroseconds(1);
     byte = z80_bus_data();
     *portOutputRegister(Z80_RD) = 1;
     *portOutputRegister(Z80_MREQ) = 1;
@@ -844,155 +846,293 @@ uint8_t z80_memory_read(uint16_t address)
     return byte;
 }
 
-void z80_feed_byte(uint8_t opcode)
+// Z80 CPU conducts a write to memory
+uint8_t z80_enchanted_cpu_read(uint16_t *address=NULL)
 {
-    while(!(z80_mreq_asserted() && z80_rd_asserted()))
+    uint8_t data;
+
+    // wait for write cycle to begin
+    while(!(z80_mreq_asserted() && z80_wr_asserted()))
         z80_clock_pulse();
-    z80_clock_pulse_drive_data(opcode);
+
+    // capture the cycle
+    if(address)
+        *address = z80_bus_address();
+    data = z80_bus_data();
+
+    // wait for write cycle to complete
+    do{
+        z80_clock_pulse();
+    }while( z80_wr_asserted() );
+
+    // return value written
+    return data;
 }
 
-uint16_t z80_feed_byte_read_stack(uint8_t opcode)
+// Z80 CPU conducts a read to memory
+uint16_t z80_enchanted_cpu_write(uint8_t data)
+{
+    uint16_t address;
+
+    // wait for read cycle to begin
+    while(!(z80_mreq_asserted() && z80_rd_asserted()))
+        z80_clock_pulse();
+
+    // capture address
+    address = z80_bus_address();
+
+    // put the byte on the data bus
+    z80_setup_drive_data(data);
+
+    // wait for the read cycle to complete
+    do{
+        z80_clock_pulse();
+    }while( z80_rd_asserted() );
+
+    // release the data bus
+    z80_shutdown_drive_data();
+
+    // return address read
+    return address;
+}
+
+uint16_t z80_enchanted_cpu_read16(uint16_t *address = NULL)
+{
+    return (z80_enchanted_cpu_read(address) << 8) | z80_enchanted_cpu_read();
+}
+
+uint16_t z80_enchanted_cpu_write16(uint16_t value)
 {
     uint16_t r;
-
-    z80_feed_byte(opcode);
-    // now it will write to the stack
-    while(!(z80_mreq_asserted() && z80_wr_asserted()))
-        z80_clock_pulse();
-    r = z80_bus_data();
-    z80_clock_pulse_while_writing();
-    while(!(z80_mreq_asserted() && z80_wr_asserted()))
-        z80_clock_pulse();
-    r = (r << 8) | z80_bus_data();
+    r = z80_enchanted_cpu_write(value);
+    z80_enchanted_cpu_write(value >> 8);
     return r;
 }
 
-void z80_set_pc(uint16_t address) // this has a lot in common with z80_show_regs(), consider refactoring
+
+int  enchanted_z80_bus_trace_stash;
+bool enchanted_ram_ce_stash;
+
+// This turns off the Z80 clock and RAM, we will provide
+// both of these. Used when we want to force the Z80 to
+// instructions we synthesise, while we capture the results.
+void z80_enchant_cpu(void)
 {
-    int z80_bus_trace_stash;
-    bool ram_ce_stash;
-    z80_clk_pause();
-
-    // wait for any current M1 to end (perhaps z80_clk_pause should do this?)
-    while(z80_m1_asserted()){
-        if(!z80_clk_is_independent())
-            z80_clock_pulse();
-        handle_z80_bus(); 
-    }
-
-    // wait for a new M1 cycle to start
-    while(!z80_m1_asserted()){
-        if(!z80_clk_is_independent())
-            z80_clock_pulse();
-        handle_z80_bus(); 
-    }
+    z80_clk_pause(true);
 
     // turn off bus tracing before we blow its tiny little mind
-    z80_bus_trace_stash = z80_bus_trace;
+    enchanted_z80_bus_trace_stash = z80_bus_trace;
     z80_bus_trace = 0;
 
     // disable the RAM so we can control the data bus
-    ram_ce_stash = ram_ce;
+    enchanted_ram_ce_stash = ram_ce;
     ram_ce = false;
     shift_register_update();
+}
 
-    z80_feed_byte(0xC3);                  // JP xxxx
-    z80_feed_byte(address & 0xFF);        //  ...
-    z80_feed_byte(address >> 8);          //  ...
-
-    ram_ce = ram_ce_stash;
+// Turn back on the Z80 clock and RAM
+void z80_disenchant_cpu(void)
+{
+    ram_ce = enchanted_ram_ce_stash;               // enable SRAM (if it was enabled before)
     shift_register_update();
-    z80_bus_trace = z80_bus_trace_stash;
-    z80_clk_resume();
+    z80_bus_trace = enchanted_z80_bus_trace_stash; // and tracing
+    z80_clk_resume();                              // fire up clk
+}
+
+void z80_set_pc(uint16_t address)
+{
+    z80_enchant_cpu();
+
+    z80_enchanted_cpu_write(0xC3);                  // JP xxxx
+    z80_enchanted_cpu_write(address & 0xFF);        //  ...
+    z80_enchanted_cpu_write(address >> 8);          //  ...
+
+    z80_disenchant_cpu();
+}
+
+uint16_t z80_set_register_swap_registers(z80_register_t reg)
+{
+    switch(reg){
+        case Z80_REG_AF_ALT:
+            return z80_enchanted_cpu_write(0x08);   // EX AF, AF'
+        case Z80_REG_BC_ALT:
+        case Z80_REG_DE_ALT:
+        case Z80_REG_HL_ALT:
+            return z80_enchanted_cpu_write(0xD9);   // EXX
+        default:
+            return 0;
+    }
+}
+
+void z80_set_register(z80_register_t reg, uint16_t value)
+{
+    uint16_t orig_pc, orig_sp, orig_af;
+
+    // Sequence of instructions for loading each register:
+    //
+    //     PC:                                                        JP xx xx
+    //     SP:                                          LD SP, xx xx; JP xx xx
+    //     AF:              POP AF <xx xx>;             LD SP, xx xx; JP xx xx
+    //     BC:              LD BC, xx xx;                             JP xx xx
+    //     DE:              LD DE, xx xx;                             JP xx xx
+    //     HL:              LD HL, xx xx;                             JP xx xx
+    //     IX:              LD IX, xx xx;                             JP xx xx
+    //     IY:              LD IY, xx xx;                             JP xx xx
+    // AF_ALT:  EX AF, AF'; POP AF <xx xx>; EX AF, AF'; LD SP, xx xx; JP xx xx
+    // BC_ALT:  EXX;        LD BC, xx xx;   EXX;                      JP xx xx
+    // DE_ALT:  EXX;        LD DE, xx xx;   EXX;                      JP xx xx
+    // HL_ALT:  EXX;        LD HL, xx xx;   EXX;                      JP xx xx
+    //      I:  PUSH AF <xx xx>; LD A, xx; LD I, a; POP AF <xx xx>; LD SP, xx xx; JP xx xx
+    z80_enchant_cpu();
+
+    switch(reg){
+        case Z80_REG_I:
+            orig_pc = z80_enchanted_cpu_write(0xF5);  // PUSH AF
+            orig_af = z80_enchanted_cpu_read16(&orig_sp);
+            z80_enchanted_cpu_write(0x3E);  // LD A, xx
+            z80_enchanted_cpu_write(value); // new value for I
+            z80_enchanted_cpu_write(0xED);  // LD I, A
+            z80_enchanted_cpu_write(0x47);  // (2-byte instruction)
+            z80_enchanted_cpu_write(0xF1);  // POP AF
+            z80_enchanted_cpu_write16(orig_af);
+            break;
+        case Z80_REG_PC:
+            orig_pc = value;
+            break;
+        case Z80_REG_SP:
+            orig_pc = z80_enchanted_cpu_write(0x31);     // LD SP
+            break;
+        case Z80_REG_AF:
+            orig_pc = z80_enchanted_cpu_write(0xF1);     // POP AF -- can't do LD AF
+            break;
+        case Z80_REG_BC:
+            orig_pc = z80_enchanted_cpu_write(0x01);     // LD BC
+            break;
+        case Z80_REG_DE:
+            orig_pc = z80_enchanted_cpu_write(0x11);     // LD DE
+            break;
+        case Z80_REG_HL:
+            orig_pc = z80_enchanted_cpu_write(0x21);     // LD HL
+            break;
+        case Z80_REG_AF_ALT:
+            orig_pc = z80_set_register_swap_registers(reg);
+            z80_enchanted_cpu_write(0xF1);               // POP AF -- can't do LD AF
+            break;
+        case Z80_REG_BC_ALT:
+            orig_pc = z80_set_register_swap_registers(reg);
+            z80_enchanted_cpu_write(0x01);               // LD BC
+            break;
+        case Z80_REG_DE_ALT:
+            orig_pc = z80_set_register_swap_registers(reg);
+            z80_enchanted_cpu_write(0x11);               // LD DE
+            break;
+        case Z80_REG_HL_ALT:
+            orig_pc = z80_set_register_swap_registers(reg);
+            z80_enchanted_cpu_write(0x21);               // LD HL
+            break;
+        case Z80_REG_IX:
+            orig_pc = z80_enchanted_cpu_write(0xDD);     // ...
+            z80_enchanted_cpu_write(0xE1);               // POP IX
+            break;
+        case Z80_REG_IY:
+            orig_pc = z80_enchanted_cpu_write(0xFD);     // ...
+            z80_enchanted_cpu_write(0xE1);               // POP IY
+            break;
+    }
+
+    // where required, feed in the data value (and capture SP for POP instructions)
+    switch(reg){
+        case Z80_REG_I:
+        case Z80_REG_PC:
+            break;
+        default:
+            orig_sp = z80_enchanted_cpu_write16(value);
+            break;
+    }
+
+    // where required, restore SP
+    switch(reg){
+        case Z80_REG_AF:
+        case Z80_REG_AF_ALT:
+        case Z80_REG_IX:
+        case Z80_REG_IY:
+        case Z80_REG_I:
+            z80_enchanted_cpu_write(0x31);      // LD SP, xxxx
+            z80_enchanted_cpu_write16(orig_sp + 1);
+            break;
+        default:
+            break;
+    }
+
+    // switch register set back (NOP if not required)
+    z80_set_register_swap_registers(reg);
+
+    // pick up in real memory back where we started
+    z80_enchanted_cpu_write(0xC3);              // JP, xxxx
+    z80_enchanted_cpu_write16(orig_pc);
+
+    z80_disenchant_cpu();
 }
 
 void z80_show_regs(void)
 {
     uint16_t pc, sp, af, bc, de, hl, ix, iy, af_, bc_, de_, hl_;
     uint8_t i;
-    int z80_bus_trace_stash;
-    bool ram_ce_stash;
-
-    z80_clk_pause();
 
     // this code does not deal with the situation where CPU is HALTed.
     // solution might be: wake CPU with an int/nmi, capture PC when it writes it to the
-    //                    stack. capture regs as usual. then IRET and JP to PC-1, then 
+    //                    stack. capture regs as usual. then IRET and JP to PC-1, then
     //                    feed it a HALT when it fetches PC-1. it will HALT with PC correct.
 
-    // // if we're partway through an M1 cycle, allow it to complete first
-    // while(z80_m1_asserted()){
-    //     if(!z80_clk_is_independent())
-    //         z80_clock_pulse();
-    //     handle_z80_bus(); 
-    // }
+    // take over the CPU
+    z80_enchant_cpu();
 
-    // wait for a new M1 cycle to start
-    while(!z80_m1_asserted()){
-        if(!z80_clk_is_independent())
-            z80_clock_pulse();
-        handle_z80_bus(); 
-    }
+    // we feed it an F5 (PUSH AF) instruction
+    pc = z80_enchanted_cpu_write(0xF5); // PUSH AF; capture PC
 
-    // turn off bus tracing before we blow its tiny little mind
-    z80_bus_trace_stash = z80_bus_trace;
-    z80_bus_trace = 0;
+    af = z80_enchanted_cpu_read16(&sp); // capture both SP and AF
+    sp += 1;                            // adjust SP to previous value
 
-    // disable the RAM so we can control the data bus
-    ram_ce_stash = ram_ce;
-    ram_ce = false;
-    shift_register_update();
+    z80_enchanted_cpu_write(0xC5);      // PUSH BC
+    bc = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xD5);      // PUSH DE
+    de = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xE5);      // PUSH HL
+    hl = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0x08);      // EX AF, AF'
+    z80_enchanted_cpu_write(0xF5);      // PUSH AF
+    af_ = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0x08);      // EX AF, AF' again (swap back)
+    z80_enchanted_cpu_write(0xD9);      // EXX
+    z80_enchanted_cpu_write(0xC5);      // PUSH BC
+    bc_ = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xD5);      // PUSH DE
+    de_ = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xE5);      // PUSH HL
+    hl_ = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xD9);      // EXX again (swap back)
+    z80_enchanted_cpu_write(0xDD);      // IX prefix
+    z80_enchanted_cpu_write(0xE5);      // PUSH IX
+    ix = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xFD);      // IY prefix
+    z80_enchanted_cpu_write(0xE5);      // PUSH IY
+    iy = z80_enchanted_cpu_read16();
+    z80_enchanted_cpu_write(0xED);      // ED prefix
+    z80_enchanted_cpu_write(0x57);      // LD A,I - note this affects the flags register
 
-    // now we feed it a synthesised instruction - F5 (PUSH AF)
-    while(!(z80_mreq_asserted() && z80_rd_asserted()))
-        z80_clock_pulse();
-    pc = z80_bus_address();                      // (this gives us the PC register)
-    z80_clock_pulse_drive_data(0xF5);            // PUSH AF
-
-    // now it will write to the stack
-    while(!(z80_mreq_asserted() && z80_wr_asserted()))
-        z80_clock_pulse();
-    sp = z80_bus_address() + 1;                  // (this gives us the SP register)
-    af = z80_bus_data();
-    z80_clock_pulse_while_writing();
-    while(!(z80_mreq_asserted() && z80_wr_asserted()))
-        z80_clock_pulse();
-    af = (af << 8) | z80_bus_data();
-
-    bc = z80_feed_byte_read_stack(0xC5);  // PUSH BC
-    de = z80_feed_byte_read_stack(0xD5);  // PUSH DE
-    hl = z80_feed_byte_read_stack(0xE5);  // PUSH HL
-    z80_feed_byte(0x08);                  // EX AF, AF'
-    af_ = z80_feed_byte_read_stack(0xF5); // PUSH AF
-    z80_feed_byte(0x08);                  // EX AF, AF' again (swap back)
-    z80_feed_byte(0xD9);                  // EXX
-    bc_ = z80_feed_byte_read_stack(0xC5); // PUSH BC
-    de_ = z80_feed_byte_read_stack(0xD5); // PUSH DE
-    hl_ = z80_feed_byte_read_stack(0xE5); // PUSH HL
-    z80_feed_byte(0xD9);                  // EXX again (swap back)
-    z80_feed_byte(0xDD);                  // IX prefix
-    ix  = z80_feed_byte_read_stack(0xE5); // PUSH IX
-    z80_feed_byte(0xFD);                  // IY prefix
-    iy  = z80_feed_byte_read_stack(0xE5); // PUSH IY
-    z80_feed_byte(0xED);                  // ED prefix
-    z80_feed_byte(0x57);                  // LD A,I - note this affects the flags register
-    i = z80_feed_byte_read_stack(0xF5) >> 8; // PUSH AF - I is now in A (high bits)
+    z80_enchanted_cpu_write(0xF5);      // PUSH AF
+    i = z80_enchanted_cpu_read16()>>8;  // I was copied into A (top bits)
 
     // finally we need to put AF, SP and PC back as they were before our tinkering
-    z80_feed_byte(0xF1);                  // POP af
-    z80_feed_byte(af & 0xFF);             //  ...
-    z80_feed_byte(af >> 8);               //  ...
-    z80_feed_byte(0x31);                  // LD SP, xxxx
-    z80_feed_byte(sp & 0xFF);             //  ...
-    z80_feed_byte(sp >> 8);               //  ...
-    z80_feed_byte(0xC3);                  // JP xxxx
-    z80_feed_byte(pc & 0xFF);             //  ...
-    z80_feed_byte(pc >> 8);               //  ...
+    z80_enchanted_cpu_write(0xF1);      // POP af
+    z80_enchanted_cpu_write16(af);
+    z80_enchanted_cpu_write(0x31);      // LD SP, xxxx
+    z80_enchanted_cpu_write16(sp);
+    z80_enchanted_cpu_write(0xC3);      // JP xxxx
+    z80_enchanted_cpu_write16(pc);
 
-    ram_ce = ram_ce_stash;                       // enable SRAM (if it was enabled before)
-    shift_register_update();
-    z80_bus_trace = z80_bus_trace_stash;         // and tracing
-    z80_clk_resume();                            // fire up clk
+    // release the CPU
+    z80_disenchant_cpu();
 
     report("PC=%04x SP=%04x\r\nAF=%04x AF'=%04x\r\n" \
            "BC=%04x BC'=%04x\r\nDE=%04x DE'=%04x\r\n" \
@@ -1087,7 +1227,7 @@ void begin_dma(void)
     while(!z80_busack_asserted()){  // wait for BUSACK
         if(!z80_clk_is_independent())
             z80_clock_pulse();
-        handle_z80_bus(); 
+        handle_z80_bus();
         z80_set_busrq(true); // handle_z80_bus may perform a DMA cycle so we need to assert again
     }
     z80_bus_master();
@@ -1313,7 +1453,7 @@ void z80_bus_trace_state(void)
 
     if(z80_bus_trace >= 2)
         report("\r\n|%04x|%02x|%s|%s|%s|",
-                z80_bus_address(), z80_bus_data(), 
+                z80_bus_address(), z80_bus_data(),
                 z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
                 z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
                 z80_m1_asserted() ? "M1" : "  ");
