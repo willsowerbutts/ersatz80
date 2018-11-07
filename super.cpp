@@ -170,7 +170,33 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
 
 void super_regs(int argc, char *argv[])
 {
-    z80_show_regs();
+    // this isn't quite right
+    // it'd be nice to be able to run: regs hl=1111 bc=2222 de=3333 af=0000 (etc)
+    if(argc == 1 && !strcasecmp(argv[0], "show"))
+        z80_show_regs();
+    else if(argc == 2){
+        uint16_t value;
+        if(!readint16(argv[1], &value, 16)){
+            report("error: bad register value\r\n");
+            return;
+        }
+        if(     !strcasecmp(argv[0], "AF"))  z80_set_register(Z80_REG_AF,     value);
+        else if(!strcasecmp(argv[0], "BC"))  z80_set_register(Z80_REG_BC,     value);
+        else if(!strcasecmp(argv[0], "DE"))  z80_set_register(Z80_REG_DE,     value);
+        else if(!strcasecmp(argv[0], "HL"))  z80_set_register(Z80_REG_HL,     value);
+        else if(!strcasecmp(argv[0], "IX"))  z80_set_register(Z80_REG_IX,     value);
+        else if(!strcasecmp(argv[0], "IY"))  z80_set_register(Z80_REG_IY,     value);
+        else if(!strcasecmp(argv[0], "AF'")) z80_set_register(Z80_REG_AF_ALT, value);
+        else if(!strcasecmp(argv[0], "BC'")) z80_set_register(Z80_REG_BC_ALT, value);
+        else if(!strcasecmp(argv[0], "DE'")) z80_set_register(Z80_REG_DE_ALT, value);
+        else if(!strcasecmp(argv[0], "HL'")) z80_set_register(Z80_REG_HL_ALT, value);
+        else if(!strcasecmp(argv[0], "PC"))  z80_set_register(Z80_REG_PC,     value);
+        else if(!strcasecmp(argv[0], "SP"))  z80_set_register(Z80_REG_SP,     value);
+        else if(!strcasecmp(argv[0], "I"))   z80_set_register(Z80_REG_I,      value);
+        else report("Unrecognised register\r\n");
+    }else{
+        report("syntax: regs [show|af|bc|de|hl|ix|iy|af'|bc'|de'|hl'|pc|sp|i] <value>\r\n");
+    }
 }
 
 void super_clk(int argc, char *argv[])

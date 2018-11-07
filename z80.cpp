@@ -934,8 +934,8 @@ void z80_enchant_cpu(void)
 void z80_disenchant_cpu(void)
 {
     ram_ce = enchanted_ram_ce_stash;               // enable SRAM (if it was enabled before)
-    shift_register_update();
     z80_bus_trace = enchanted_z80_bus_trace_stash; // and tracing
+    shift_register_update();
     z80_clk_resume();                              // fire up clk
 }
 
@@ -1226,6 +1226,11 @@ void end_dma(void)
 {
     z80_bus_slave();
     z80_set_busrq(false);
+    // if necessary, clock the Z80 until it leaves DMA mode
+    while(z80_busack_asserted()){
+        if(!z80_clk_is_independent())
+            z80_clock_pulse();
+    }
 }
 
 void mmu_setup(void)
