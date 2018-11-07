@@ -939,17 +939,6 @@ void z80_disenchant_cpu(void)
     z80_clk_resume();                              // fire up clk
 }
 
-void z80_set_pc(uint16_t address)
-{
-    z80_enchant_cpu();
-
-    z80_enchanted_cpu_write(0xC3);                  // JP xxxx
-    z80_enchanted_cpu_write(address & 0xFF);        //  ...
-    z80_enchanted_cpu_write(address >> 8);          //  ...
-
-    z80_disenchant_cpu();
-}
-
 uint16_t z80_set_register_swap_registers(z80_register_t reg)
 {
     switch(reg){
