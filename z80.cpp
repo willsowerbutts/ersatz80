@@ -7,6 +7,8 @@
 #include "disk.h"
 #include "disasm.h"
 
+#define MEMORY_WIPE_VALUE 0x76 // at reset, fill RAM with HALT instructions
+
 uint16_t user_led = 0x000; // value to show on user-controlled LEDs
 bool z80_reset = true;       // Z80 /RESET pin (z80_reset=true means /RESET is driven low ie asserted)
 bool z80_irq = false;        // Z80 /IRQ pin
@@ -606,7 +608,7 @@ void z80_mmu_write(uint8_t bank, uint8_t data)
 
 void z80_wipe_page(void)
 {
-    z80_setup_address_data(0, 0);
+    z80_setup_address_data(0, MEMORY_WIPE_VALUE); // fill RAM with 0x76 (HALT instruction)
     *portOutputRegister(Z80_MREQ) = 0;
     *portOutputRegister(Z80_WR) = 0;
     // there must be a more efficient way to do this, since
