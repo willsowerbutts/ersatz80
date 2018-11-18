@@ -23,6 +23,7 @@ typedef struct {
 void super_reset(int argc, char *argv[]);
 void super_regs(int argc, char *argv[]);
 void super_clk(int argc, char *argv[]);
+void super_step(int argc, char *argv[]);
 void super_loadrom(int argc, char *argv[]);
 void super_loadfile(int argc, char *argv[]);
 void super_trace(int argc, char *argv[]);
@@ -49,6 +50,8 @@ const cmd_entry_t cmd_table[] = {
     { "regs",       &super_regs     },
     { "clk",        &super_clk      },
     { "clock",      &super_clk      },
+    { "step",       &super_step     },
+    { "s",          &super_step     },
     { "reset",      &super_reset    },
     { "loadrom",    &super_loadrom  },
     { "loadfile",   &super_loadfile },
@@ -199,6 +202,29 @@ void super_regs(int argc, char *argv[])
     }
 }
 
+void super_step(int argc, char *argv[])
+{
+    if(z80_bus_trace == TR_OFF){
+        report("step: cannot step without bus tracing\r\n");
+        return;
+    }
+
+    if(!z80_clk_is_stopped()){
+        report("step: stopping clock\r\n");
+        z80_clk_set_supervised(0.0);
+    }
+
+    while(instruction_clock_cycles == 0){
+        z80_clock_pulse();
+        handle_z80_bus();
+    }
+
+    while(instruction_clock_cycles != 0){
+        z80_clock_pulse();
+        handle_z80_bus();
+    }
+}
+
 void super_clk(int argc, char *argv[])
 {
     float f;
@@ -244,18 +270,18 @@ void super_clk(int argc, char *argv[])
     }
 
     if(setclk){
-        if(f > CLK_SLOW_MAX_FREQUENCY && z80_bus_trace){
+        if(f > CLK_SLOW_MAX_FREQUENCY && z80_bus_trace != TR_OFF){
             report("clock: disabling bus tracing for high speed\r\n");
-            z80_bus_trace = 0;
+            z80_bus_trace = TR_OFF;
         }
-        if(z80_bus_trace && f != 0.0)
+        if(z80_bus_trace != TR_OFF && f != 0.0)
             z80_clk_set_supervised(f);
         else
             z80_clk_set_independent(f);
     }
 
-    f = z80_clk_get_frequency();
     report("clock: %s ", z80_clk_get_name());
+    f = z80_clk_get_frequency();
     if(f >= 950000.0)
         report("%.3fMHz", f / 1000000.0);
     else if(f > 950.0)
@@ -307,14 +333,31 @@ void super_loadfile(int argc, char *argv[])
 
 void super_trace(int argc, char *argv[])
 {
-    if(argc != 1){
-        report("error: trace [0|1|2]\r\n");
-    }else{
-        z80_bus_trace = strtol(argv[0], NULL, 10);
-        if(z80_bus_trace > 0)
-            z80_clk_set_supervised(z80_clk_get_frequency());
+    bool help = false;
+
+    if(argc != 1)
+        help = true;
+    else{
+        if(!strcasecmp(argv[0], "off"))
+            z80_bus_trace = TR_OFF;
+        else if(!strcasecmp(argv[0], "silent"))
+            z80_bus_trace = TR_SILENT;
+        else if(!strcasecmp(argv[0], "inst"))
+            z80_bus_trace = TR_INST;
+        else if(!strcasecmp(argv[0], "bus"))
+            z80_bus_trace = TR_BUS;
         else
-            z80_clk_set_independent(z80_clk_get_frequency());
+            help = true;
+        if(!help && !z80_clk_is_stopped()){
+            if(z80_bus_trace > 0)
+                z80_clk_set_supervised(z80_clk_get_frequency());
+            else
+                z80_clk_set_independent(z80_clk_get_frequency());
+        }
+    }
+
+    if(help){
+        report("error: trace [off|silent|inst|bus]\r\n");
     }
 }
 

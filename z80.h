@@ -141,12 +141,19 @@ void handle_z80_bus(void);
 void begin_dma(void);
 void end_dma(void);
 
+// TR_OFF:    no bus tracing (clock can be unsupervised)
+// TR_SILENT: trace bus states but do not report anything
+// TR_INST:   trace bus states and print decoded instructions
+// TR_BUS:    trace and print bus states and decoded instructions
+typedef enum { TR_OFF, TR_SILENT, TR_INST, TR_BUS } z80_bus_trace_t;
+extern z80_bus_trace_t z80_bus_trace;
+extern int instruction_clock_cycles; // updated only when z80_bus_trace != TR_OFF
+
 extern uint16_t user_led;
 extern bool z80_reset;
 extern bool z80_irq;
 extern bool z80_nmi;
 extern bool ram_ce;
-extern int z80_bus_trace;
 extern uint8_t mmu[4];
 extern uint8_t mmu_foreign[4];
 extern uint8_t ram_pages; // count of 16KB SRAM pages

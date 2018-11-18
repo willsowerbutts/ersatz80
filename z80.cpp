@@ -14,7 +14,7 @@ bool z80_reset = true;       // Z80 /RESET pin (z80_reset=true means /RESET is d
 bool z80_irq = false;        // Z80 /IRQ pin
 bool z80_nmi = false;        // Z80 /NMI pin
 bool ram_ce = false;         // RAM /CE pin
-int z80_bus_trace = 0;
+z80_bus_trace_t z80_bus_trace = TR_OFF;
 uint8_t mmu[4];
 uint8_t mmu_foreign[4];
 uint8_t ram_pages = 0;
@@ -912,7 +912,7 @@ uint16_t z80_enchanted_cpu_write16(uint16_t value)
 }
 
 
-int  enchanted_z80_bus_trace_stash;
+z80_bus_trace_t enchanted_z80_bus_trace_stash;
 bool enchanted_ram_ce_stash;
 
 // This turns off the Z80 clock and RAM, we will provide
@@ -924,7 +924,7 @@ void z80_enchant_cpu(void)
 
     // turn off bus tracing before we blow its tiny little mind
     enchanted_z80_bus_trace_stash = z80_bus_trace;
-    z80_bus_trace = 0;
+    z80_bus_trace = TR_OFF;
 
     // disable the RAM so we can control the data bus
     enchanted_ram_ce_stash = ram_ce;
@@ -1386,27 +1386,30 @@ void z80_instruction_ended(void)
     uint16_t addr;
     bus_cycle_t cycle;
 
-    bus_trace_di = 0;
-    z80ctrl_disasm(read_bus_trace_bytes, output);
-    report("%-13s %2d  ", output, instruction_clock_cycles);
+    if(z80_bus_trace >= TR_INST){
+        bus_trace_di = 0;
+        z80ctrl_disasm(read_bus_trace_bytes, output);
+        report("%-14s %2d  ", output, instruction_clock_cycles);
 
-    addr = ~bus_trace[0].address;
-    for(int i=0; i<bus_trace_count; i++){
-        if(bus_trace[i].address != addr || cycle != bus_trace[i].cycle){
-            addr = bus_trace[i].address;
-            cycle = bus_trace[i].cycle;
-            switch(bus_trace[i].cycle){
-                case MEM_READ:  report("%04x: ", bus_trace[i].address); break;
-                case MEM_WRITE: report("%04x<-", bus_trace[i].address); break;
-                case IO_READ:   report("io%04x: ", bus_trace[i].address); break;
-                case IO_WRITE:  report("io%04x<-", bus_trace[i].address); break;
-                case NO_CYCLE:  break; // should never happen
+        addr = ~bus_trace[0].address;
+        for(int i=0; i<bus_trace_count; i++){
+            if(bus_trace[i].address != addr || cycle != bus_trace[i].cycle){
+                addr = bus_trace[i].address;
+                cycle = bus_trace[i].cycle;
+                switch(bus_trace[i].cycle){
+                    case MEM_READ:  report("%04x: ", bus_trace[i].address); break;
+                    case MEM_WRITE: report("%04x<-", bus_trace[i].address); break;
+                    case IO_READ:   report("io%04x: ", bus_trace[i].address); break;
+                    case IO_WRITE:  report("io%04x<-", bus_trace[i].address); break;
+                    case NO_CYCLE:  break; // should never happen
+                }
             }
+            report("%02x%s", bus_trace[i].data, i == (bus_trace_count-1) ? "" : (i == (bus_trace_di-1) ? " / " : " "));
+            addr++;
         }
-        report("%02x%s", bus_trace[i].data, i == (bus_trace_count-1) ? "" : (i == (bus_trace_di-1) ? " / " : " "));
-        addr++;
+        report("\r\n");
     }
-    report("\r\n");
+
     instruction_clock_cycles = 0;
 }
 
@@ -1414,7 +1417,7 @@ void z80_bus_trace_state(void)
 {
     bus_cycle_t type = NO_CYCLE;
 
-    if(z80_bus_trace >= 1){
+    if(z80_bus_trace != TR_OFF){
         instruction_clock_cycles++;
         if(bus_trace_wait_cycle_end && !(z80_mreq_asserted() || z80_iorq_asserted()))
             bus_trace_wait_cycle_end = false;
@@ -1447,7 +1450,7 @@ void z80_bus_trace_state(void)
         }
     }
 
-    if(z80_bus_trace >= 2)
+    if(z80_bus_trace >= TR_BUS)
         report("\r\n|%04x|%02x|%s|%s|%s|",
                 z80_bus_address(), z80_bus_data(),
                 z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),

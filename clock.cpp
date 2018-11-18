@@ -101,6 +101,9 @@ void z80_slow_clock_set_frequency(float frequency)
     if(frequency >= CLK_SLOW_MAX_FREQUENCY) // limit ourselves to the speeds we can actually generate!
         frequency = CLK_SLOW_MAX_FREQUENCY;
 
+    if(frequency == 0.0f)
+        return;
+
     // for very low frequencies we need to use a slower clock source
     if(frequency < ((F_BUS>>7)/65536.0f)){
         clks = 2;
@@ -141,8 +144,8 @@ void z80_clk_init(void)
     *portOutputRegister(CLK_STROBE) = 0;
     *portOutputRegister(CLK_FAST_ENABLE) = 0;
     clk_mode = CLK_STOPPED;
-    clk_slow_freq = clk_slow_requested = 0.0;
-    z80_slow_clock_set_frequency(100000); // 0.1MHz
+    clk_slow_freq = clk_slow_requested = 0.0f;
+    z80_slow_clock_set_frequency(1000000); // 1MHz
 }
 
 const char *z80_clk_get_name(void)
@@ -236,9 +239,11 @@ void z80_clk_set_supervised(float frequency)
     if(frequency == clk_slow_requested && clk_mode == CLK_SUPERVISED)
         return;
 
+    clk_mode_t old_mode = clk_mode;
     z80_clk_stop();
     z80_slow_clock_set_frequency(frequency);
-    clk_mode = CLK_SUPERVISED;
+    if(old_mode != CLK_STOPPED)
+        clk_mode = CLK_SUPERVISED;
 }
 
 void z80_clk_pause(bool at_instruction_start)
@@ -282,7 +287,7 @@ void z80_set_clk(bool level)
         *portOutputRegister(CLK_STROBE) = 0; // Z80 CLK line goes high
         if(clk_mode == CLK_SUPERVISED)
             z80_clk_slow_wait_overflow();
-        if(z80_bus_trace)
+        if(z80_bus_trace != TR_OFF)
             z80_bus_trace_state();
     }else{
         *portOutputRegister(CLK_STROBE) = 1; // Z80 CLK line goes low
