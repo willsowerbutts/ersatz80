@@ -243,16 +243,20 @@ void z80_clk_set_supervised(float frequency)
 
 void z80_clk_pause(bool at_instruction_start)
 {
-    // use a DMA cycle to ensure that we don't stop in the middle 
-    // of a multi-byte instruction fetch
-    if(at_instruction_start)
-        begin_dma();
-
     paused_clk_mode = clk_mode;
     z80_clk_stop();
 
-    if(at_instruction_start)
-        end_dma();
+    // stop the CPU only at the start of an instruction fetch.
+    // NOTE/TODO: this may stop the CPU partway through a multi
+    // byte instruction, eg in 'ED 51' we may stop after the ED
+    // is fetched, but before the 51.
+    if(at_instruction_start){
+        while(!z80_m1_asserted() || z80_mreq_asserted()){
+            if(!z80_clk_is_independent())
+                z80_clock_pulse();
+            handle_z80_bus();
+        }
+    }
 }
 
 void z80_clk_resume(void)
