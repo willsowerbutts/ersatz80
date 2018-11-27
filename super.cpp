@@ -173,7 +173,7 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
 
 void super_regs(int argc, char *argv[])
 {
-    // this isn't quite right
+    // parsing isn't quite right
     // it'd be nice to be able to run: regs hl=1111 bc=2222 de=3333 af=0000 (etc)
     if(argc == 1 && !strcasecmp(argv[0], "show"))
         z80_show_regs();

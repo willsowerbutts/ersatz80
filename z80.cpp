@@ -146,10 +146,10 @@ void z80_bus_slave(void)
     pinMode(Z80_D5,    INPUT);
     pinMode(Z80_D6,    INPUT);
     pinMode(Z80_D7,    INPUT);
-    pinMode(Z80_IORQ,  INPUT);
-    pinMode(Z80_MREQ,  INPUT);
-    pinMode(Z80_RD,    INPUT);
-    pinMode(Z80_WR,    INPUT);
+    pinMode(Z80_IORQ,  INPUT_PULLUP);
+    pinMode(Z80_MREQ,  INPUT_PULLUP);
+    pinMode(Z80_RD,    INPUT_PULLUP);
+    pinMode(Z80_WR,    INPUT_PULLUP);
 #endif
 }
 
@@ -237,10 +237,11 @@ void z80_setup(void)
     *portConfigRegister(Z80_D5  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     *portConfigRegister(Z80_D6  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
     *portConfigRegister(Z80_D7  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
-    *portConfigRegister(Z80_RD  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
-    *portConfigRegister(Z80_WR  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
-    *portConfigRegister(Z80_IORQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
-    *portConfigRegister(Z80_MREQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1);
+    // enable pull-ups on our control signals
+    *portConfigRegister(Z80_RD  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1) | PORT_PCR_PE | PORT_PCR_PS;
+    *portConfigRegister(Z80_WR  ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1) | PORT_PCR_PE | PORT_PCR_PS;
+    *portConfigRegister(Z80_IORQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1) | PORT_PCR_PE | PORT_PCR_PS;
+    *portConfigRegister(Z80_MREQ) = PORT_PCR_SRE | PORT_PCR_DSE | PORT_PCR_MUX(1) | PORT_PCR_PE | PORT_PCR_PS;
     // drive all Z80 bus pins to 1
 #ifdef ERSATZ80_PCB_REV1
     GPIOA_PSOR = ((1<<5) | (1<<12) | (1<<14) | (1<<15) | (1<<16) | (1<<17));
