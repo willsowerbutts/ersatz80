@@ -1173,7 +1173,7 @@ void handle_z80_bus(void)
                 z80_complete_read(z80_irq_vector());
                 z80_set_busrq(false);
             }else
-                report("(iorq weird?)");
+                report("ersatz80: iorq weird?\r\n");
         } else if(z80_mreq_asserted()){
             if(z80_rd_asserted()){       // Memory read
                 z80_complete_read(memory_read(z80_bus_address()));
@@ -1183,9 +1183,9 @@ void handle_z80_bus(void)
                 memory_write(z80_bus_address_low8(), z80_bus_data());
                 z80_set_busrq(false);
             }else
-                report("(mreq weird?)");
+                report("ersatz80: mreq weird?\r\n");
         } else
-            report("(wait weird?)");
+            report("ersatz80: wait weird?\r\n");
     }
 }
 
