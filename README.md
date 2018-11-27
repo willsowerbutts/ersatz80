@@ -83,12 +83,6 @@ For revision 1 PCBs you must uncomment "#define ERSATZ80_PCB_REV1" in z80.h,
 while for revision 2 PCBs this line must be commented out (which is the
 default).
 
-## Overclocking
-
-It is possible to fit faster oscillators at U10 and overclock the Z80 CPU.
-Using a Zilog Z84C0020PEG CMOS Z80 CPU it has been determined that oscillators
-up to 22MHz (10% overclock) give reliable operation, while 24MHz was too fast.
-
 ## Supervisor Commands
 
 To send a command to the supervisor press the escape keycode (default Ctrl+G)
