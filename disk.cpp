@@ -292,7 +292,7 @@ bool disk_is_file_mounted(const char *new_filename)
     return false;
 }
 
-void disk_init(void) {
+void disk_setup(void) {
     for(int d=0; d<NUM_DISK_DRIVES; d++) {
         disk[d].sector_number = 0;
         disk[d].dma_address = 0;

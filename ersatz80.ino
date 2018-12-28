@@ -391,11 +391,22 @@ void uart_setup(int baud)
 
 void setup() 
 {
-    z80_setup();
-    z80_clk_set_independent(0.0);
-    z80_do_reset();
-    uart_setup(115200);   // setup (optional) Serial6
+    // TODO check any routine that uses z80_clk_pause()
+    // TODO option to direct console output to UART6 (pin 47 input RX, 48 output TX, 56 input CTS, any pin output RTS) see https://www.pjrc.com/teensy/td_uart.html
+    //      console usb, console uart, console uart 115200, console uart 1000000, etc.
 
+    z80_setup();
+    z80_clk_set_independent(0.0); // TODO roll into z80_setup
+    z80_do_reset();               // TODO roll into z80_setup
+    // z80_setup should: TODO TODO TODO TODO
+    //  - setup teensy GPIO
+    //  - setup shift register
+    //  - setup a supervised clock
+    //  - setup the new z80_mode variable
+    //  - send Z80 reset clocks (rewrite z80_do_reset -- perhaps just delay if the clk is independent?)
+
+    uart_setup(115200);   // setup (optional) Serial6
+    
     // now wait for terminal software to connect to the USB ACM device
     Serial.begin(115200); // console on USB ACM device (baud rate is irrelevant)
     while(!Serial.dtr());
@@ -412,18 +423,24 @@ void setup()
         #endif
         while(1); // halt
     }
-    disk_init();
+    disk_setup();
     mmu_setup();
     sram_setup();
+
+    // TODO: boot to be directed by "boot.cmd" from SD card, with the below executed only
+    // if that file does not exist. and this code should be updated to work using monitor
+    // commands.
     report("ersatz80: load ROM\r\n");
     load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
     report("ersatz80: reset Z80\r\n");
     z80_do_reset();
+
     report("Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
-    // fire up the Z80
-    ram_ce = true;
-    shift_register_update();
-    z80_clk_set_independent(CLK_FAST_FREQUENCY);
+
+    // fire up the Z80 -- this code should be moved into z80_setup() ideally
+    ram_ce = true;                               // TODO roll into z80_setup
+    shift_register_update();                     // TODO roll into z80_setup
+    z80_clk_set_independent(CLK_FAST_FREQUENCY); // TODO roll into z80_setup
 }
 
 void loop()
