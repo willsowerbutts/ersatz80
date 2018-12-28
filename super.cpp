@@ -41,12 +41,14 @@ void super_run(int argc, char *argv[]);
 void super_exec(int argc, char *argv[]);
 void super_mount(int argc, char *argv[]);
 void super_umount(int argc, char *argv[]);
+void super_uart0(int argc, char *argv[]);
 
 const cmd_entry_t cmd_table[] = {
     { "help",       &super_help     }, // despite the name, not actually super helpful
     { "quit",       NULL            },
     { "exit",       NULL            },
     { "q",          NULL            },
+    { "uart0",      &super_uart0    },
     { "regs",       &super_regs     },
     { "clk",        &super_clk      },
     { "clock",      &super_clk      },
@@ -127,10 +129,6 @@ void supervisor_menu_enter(void)
 {
     supervisor_cmd_offset = 0;
     report("Supervisor> ");
-}
-
-void supervisor_menu_exit(void)
-{
 }
 
 bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit etc, true otherwise
@@ -464,6 +462,40 @@ void super_mv(int argc, char *argv[])
         if(!disk_mv(argv[0], argv[1]))
             report("error: cp failed\r\n");
     }
+}
+
+void super_uart0(int argc, char *argv[])
+{
+    int baud;
+    char *endptr = NULL;
+
+    if(argc == 1){
+        if(strcasecmp(argv[0], "usb") == 0){
+            uart0_on_console = true;
+            report("uart0: using usb ACM device\r\n");
+            return;
+        }
+
+        if(strcasecmp(argv[0], "uart") == 0){
+            baud = 115200;
+        }else{
+            baud = strtol(argv[0], &endptr, 10);
+            if(baud == 0 || !endptr || *endptr != 0)
+                baud = 0;
+        }
+
+        if(baud){
+            uart_setup(baud);
+            report("uart0: using UART6 at %d baud\r\n", baud);
+            if(uart0_on_console)
+                supervisor_menu_enter();
+            uart0_on_console = false;
+            return;
+        }
+
+        report("error: syntax: uart0 [usb|uart|<baud>]\r\n");
+    }
+
 }
 
 void super_help(int argc, char *argv[])

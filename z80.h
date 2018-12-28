@@ -180,10 +180,14 @@ inline void z80_set_busrq(bool request_dma)    { digitalWrite(Z80_BUSRQ,  !reque
 inline void z80_set_release_wait(bool release) { digitalWrite(WAIT_RESET, !release); } 
 #endif
 
-// teensy.ino:
+// ersatz80.ino:
 uint8_t iodevice_read(uint16_t address);
 void iodevice_write(uint16_t address, uint8_t value); // call ONLY when in DMA mode!
 uint8_t memory_read(uint16_t address);
 void memory_write(uint16_t address, uint8_t value);
+
+// console
+void uart_setup(int baud);
+extern bool uart0_on_console;
 
 #endif

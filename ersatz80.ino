@@ -16,7 +16,7 @@
 uint8_t uart_rx_fifo_waiting = 0;
 uint8_t uart_rx_fifo_start = 0;
 uint8_t uart_rx_fifo_buffer[UART_RX_FIFO_BUFFER_SIZE];
-bool supervisor_input_mode = false;
+bool uart0_on_console = true;
 
 bool uart_rx_fifo_push(uint8_t keyin)
 {
@@ -44,23 +44,40 @@ uint8_t uart_rx_fifo_pop(void)
 
 uint8_t uart_read_status(uint16_t address)
 {
-    return (uart_rx_fifo_waiting ? 0x80 : 0x00) | (Serial.availableForWrite()>0 ? 0x00 : 0x40);
+    if(uart0_on_console){
+        return (uart_rx_fifo_waiting ? 0x80 : 0x00) | (Serial.availableForWrite()>0 ? 0x00 : 0x40);
+    }else{
+        return (Serial6.available() ? 0x80 : 0x00) | (Serial6.availableForWrite()>0 ? 0x00 : 0x40);
+    }
 }
 
 uint8_t uart_read_data(uint16_t address)
 {
-    return uart_rx_fifo_pop();
+    if(uart0_on_console)
+        return uart_rx_fifo_pop();
+    else
+        return Serial6.read();
+
 }
 
 void uart_write_data(uint16_t address, uint8_t value)
 {
-    debug_mode_user();
-    Serial.write(value);
+    if(uart0_on_console){
+        debug_mode_user();
+        Serial.write(value);
+    }else{
+        if(Serial6.availableForWrite() > 0)
+            Serial6.write(value);
+    }
 }
 
 bool uart_interrupt_request(void)
 {
-    return uart_rx_fifo_waiting;
+    if(uart0_on_console){
+        return uart_rx_fifo_waiting;
+    }else{
+        return Serial6.available();
+    }
 }
 
 void user_leds_write(uint16_t address, uint8_t value)
@@ -277,23 +294,30 @@ void memory_write(uint16_t address, uint8_t value)
     // nop
 }
 
-void handle_serial_input(void)
+static bool usb_acm_supervisor_input_mode = false;
+void handle_usb_acm_input(void)
 {
     int key;
 
-    if((key = Serial.read()) >= 0){
-        if(supervisor_input_mode){
-            if(!supervisor_menu_key_in(key)){
-                supervisor_input_mode = false;
-                supervisor_menu_exit();
-            }
-        }else{
-            if(key == SUPERVISOR_ESCAPE_KEYCODE){
-                supervisor_input_mode = true;
+    while((key = Serial.read()) >= 0){
+        if(!uart0_on_console){
+            // USB ACM is used for supervisor mode only
+            if(!supervisor_menu_key_in(key))
                 supervisor_menu_enter();
-            }else if(!uart_rx_fifo_push(key)){
-                Serial.write(0x07); // sound bell on overflow
-                return; // ... and come back to this task later
+        }else{
+            // device is shared between supervisor input and UART0
+            if(usb_acm_supervisor_input_mode){
+                if(!supervisor_menu_key_in(key)){
+                    usb_acm_supervisor_input_mode = false;
+                }
+            }else{
+                if(key == SUPERVISOR_ESCAPE_KEYCODE){
+                    usb_acm_supervisor_input_mode = true;
+                    supervisor_menu_enter();
+                }else if(!uart_rx_fifo_push(key)){
+                    Serial.write(0x07); // sound bell on overflow
+                    return; // ... and come back to this task later
+                }
             }
         }
     }
@@ -351,13 +375,31 @@ void __assert_func(const char *__file, int __lineno, const char *__func, const c
     while(1);
 }
 
+void uart_setup(int baud)
+{
+    // UART0 can optionally be redirected to UART on the expansion
+    // connector. Hardware flow control is used. This is used only
+    // when uart0_on_console=false.
+    //  input   RX - pin 47
+    //  output  TX - pin 48
+    //  input  CTS - pin 56
+    //  output RTS - pin 57
+    Serial6.begin(baud, SERIAL_8N1);
+    Serial6.attachCts(56);
+    Serial6.attachRts(57);
+}
+
 void setup() 
 {
     z80_setup();
     z80_clk_set_independent(0.0);
     z80_do_reset();
-    Serial.begin(115200);
-    while(!Serial.dtr()); // wait for a terminal to connect to the USB ACM device
+    uart_setup(115200);   // setup (optional) Serial6
+
+    // now wait for terminal software to connect to the USB ACM device
+    Serial.begin(115200); // console on USB ACM device (baud rate is irrelevant)
+    while(!Serial.dtr());
+
     report("                     _       ___   ___  \r\n  ___ _ __ ___  __ _| |_ ___( _ ) / _ \\ \r\n"
            " / _ \\ '__/ __|/ _` | __|_  / _ \\| | | |\r\n|  __/ |  \\__ \\ (_| | |_ / / (_) | |_| |\r\n"
            " \\___|_|  |___/\\__,_|\\__/___\\___/ \\___/ \r\nersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", 
@@ -384,7 +426,8 @@ void setup()
     z80_clk_set_independent(CLK_FAST_FREQUENCY);
 }
 
-void loop() {
+void loop()
+{
     unsigned long now, disk_sync_due = 0;
 
     while(true){
@@ -399,7 +442,7 @@ void loop() {
         // handle I/O and memory requests from the Z80
         handle_z80_bus();
         // handle user input over USB ACM serial
-        handle_serial_input();
+        handle_usb_acm_input();
         // periodically flush written data to the SD card
         if(now >= disk_sync_due){
             disk_sync();                     // sync all the disks
