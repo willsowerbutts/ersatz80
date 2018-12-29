@@ -1,1 +1,1 @@
-zmac basic.asm && ./makerom basic.c output.bin
+zmac basic.asm && ./makerom basic.c zout/basic.cim

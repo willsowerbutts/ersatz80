@@ -380,10 +380,12 @@ void uart_setup(int baud)
     // UART0 can optionally be redirected to UART on the expansion
     // connector. Hardware flow control is used. This is used only
     // when uart0_on_console=false.
-    //  input   RX - pin 47
-    //  output  TX - pin 48
-    //  input  CTS - pin 56
-    //  output RTS - pin 57
+    // wiring instructions:
+    //  connect GND on ersatz80 to GND on peer
+    //  input   RX - pin 47 - connect to TX output pin on peer
+    //  output  TX - pin 48 - connect to RX input pin on peer
+    //  input  CTS - pin 56 - connect to RTS output pin on peer
+    //  output RTS - pin 57 - connect to CTS input pin on peer
     Serial6.begin(baud, SERIAL_8N1);
     Serial6.attachCts(56);
     Serial6.attachRts(57);
