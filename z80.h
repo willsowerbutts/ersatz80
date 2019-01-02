@@ -117,7 +117,6 @@ extern z80_mode_t z80_mode;
 z80_mode_t z80_set_mode(z80_mode_t new_mode); // returns previous mode
 z80_mode_t z80_set_dma_mode(bool writing);    // returns previous mode
 z80_mode_t z80_end_dma_mode(void);            // returns previous mode
-void z80_mode_dma_idle(void);
 bool z80_supervised_mode(void);               // is the clock synthesised in this mode?
 const char *z80_mode_name(z80_mode_t mode);
 

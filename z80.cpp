@@ -18,6 +18,27 @@ z80_bus_trace_t z80_bus_trace = TR_SILENT;
 z80_mode_t z80_mode = MODE_SUPERVISED;
 int ram_pages;     // count of 16KB SRAM pages
 
+static void z80_mode_dma_idle(void)
+{
+#ifdef MODE_SWITCH_DEBUGGING
+    report("[%s->", z80_mode_name(z80_mode));
+#endif
+    // the transition has already happened, we just need to update the state
+    switch(z80_mode){
+        case MODE_UNSUPERVISED:
+            z80_mode = MODE_UNSUPERVISED_DMA_IDLE;
+            break;
+        case MODE_SUPERVISED:
+            z80_mode = MODE_SUPERVISED_DMA_IDLE;
+            break;
+        default:
+            assert(false); // we shouldn't get called in any other modes
+    }
+#ifdef MODE_SWITCH_DEBUGGING
+    report("%s]", z80_mode_name(z80_mode));
+#endif
+}
+
 void z80_clock_pulse_drive_data(uint8_t data)
 {
     z80_bus_data_outputs();
@@ -395,16 +416,6 @@ inline void z80_complete_read(uint8_t data)
     z80_bus_data_inputs();
     z80_set_release_wait(false);
     z80_mode_dma_idle();
-    switch(z80_mode){
-        case MODE_UNSUPERVISED:
-            z80_mode = MODE_UNSUPERVISED_DMA_IDLE;
-            break;
-        case MODE_SUPERVISED:
-            z80_mode = MODE_SUPERVISED_DMA_IDLE;
-            break;
-        default:
-            break;
-    }
 }
 
 inline void z80_complete_write(void)
@@ -416,16 +427,6 @@ inline void z80_complete_write(void)
             z80_clock_pulse();
     z80_set_release_wait(false);
     z80_mode_dma_idle();
-    switch(z80_mode){
-        case MODE_UNSUPERVISED:
-            z80_mode = MODE_UNSUPERVISED_DMA_IDLE;
-            break;
-        case MODE_SUPERVISED:
-            z80_mode = MODE_SUPERVISED_DMA_IDLE;
-            break;
-        default:
-            break;
-    }
 }
 
 void handle_z80_bus(void)
@@ -705,27 +706,6 @@ z80_mode_t z80_end_dma_mode(void)
     assert(false);
 }
 
-void z80_mode_dma_idle(void)
-{
-#ifdef MODE_SWITCH_DEBUGGING
-    report("[%s->", z80_mode_name(z80_mode));
-#endif
-    // the transition has already happened, we just need to update the state
-    switch(z80_mode){
-        case MODE_UNSUPERVISED:
-            z80_mode = MODE_UNSUPERVISED_DMA_IDLE;
-            break;
-        case MODE_SUPERVISED:
-            z80_mode = MODE_SUPERVISED_DMA_IDLE;
-            break;
-        default:
-            assert(false); // we shouldn't get called in any other modes
-    }
-#ifdef MODE_SWITCH_DEBUGGING
-    report("%s]", z80_mode_name(z80_mode));
-#endif
-}
-
 // this tries to move us towards the desired mode, returning
 // the mode it has moved us into (unlike z80_set_mode() which
 // returns the previous mode)
@@ -862,6 +842,8 @@ static z80_mode_t z80_set_mode_internal(z80_mode_t new_mode)
 #ifdef MODE_SWITCH_DEBUGGING
 void z80_check_mode_correct(void)
 {
+    // this just checks that the interface between the Z80 and the Teensy
+    // appears to be correctly configured for the mode we think we're in.
     switch(z80_mode){
         case MODE_UNSUPERVISED:
             assert(!z80_clk_is_supervised());
