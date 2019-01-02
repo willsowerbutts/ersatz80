@@ -3,8 +3,7 @@ F_CPU        = 120000000
 ARDUINO_DIR  = $(HOME)/arduino-1.8.7
 ARDUINO_LIB_PATH = $(ARDUINO_DIR)/hardware/teensy/avr/libraries
 ARDUINO_LIBS = SPI SdFat
-# Compile with -O1 and link time optimisations
-OPTIMIZATION_LEVEL = 3
+OPTIMIZATION_LEVEL = 2
 # Squelch the noisy warnings about the Teensyduino code
 CXXFLAGS += -Wno-c++14-compat
 

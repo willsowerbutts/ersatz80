@@ -143,9 +143,10 @@ void z80_clk_init(void)
     pinMode(CLK_FAST_ENABLE, OUTPUT);
     *portOutputRegister(CLK_STROBE) = 0;
     *portOutputRegister(CLK_FAST_ENABLE) = 0;
-    clk_mode = CLK_STOPPED;
+    clk_mode = CLK_SUPERVISED;
     clk_slow_freq = clk_slow_requested = 0.0f;
-    z80_slow_clock_set_frequency(1000000); // 1MHz
+    z80_slow_clock_set_frequency(10000000); // 10MHz
+    z80_set_clk(true);
 }
 
 const char *z80_clk_get_name(void)
@@ -287,7 +288,7 @@ void z80_set_clk(bool level)
         *portOutputRegister(CLK_STROBE) = 0; // Z80 CLK line goes high
         if(clk_mode == CLK_SUPERVISED)
             z80_clk_slow_wait_overflow();
-        if(z80_bus_trace != TR_OFF)
+        if(z80_supervised_mode())
             z80_bus_trace_state();
     }else{
         *portOutputRegister(CLK_STROBE) = 1; // Z80 CLK line goes low

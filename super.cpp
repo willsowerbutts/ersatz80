@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "z80.h"
+#include "z80io.h"
 #include "clock.h"
 #include "serial.h"
 #include "super.h"
@@ -13,7 +14,6 @@
 #define SMAXARG 10
 int supervisor_cmd_offset = 0;
 char supervisor_cmd_buffer[SBUFLEN];
-#define is_cmd(x) (!strcasecmp_P(buf, PSTR(x)))
 
 typedef struct {
     const char *name;
@@ -83,7 +83,15 @@ const cmd_entry_t cmd_table[] = {
     { NULL,         NULL            }
 };
 
-bool readint16(const char *arg, uint16_t *value, int base)
+static bool not_in_supervised_mode(void)
+{
+    if(z80_supervised_mode())
+        return false;
+    report("ersatz80: this command can only be used in supervisor mode\r\n");
+    return true;
+}
+
+bool parse_int16(const char *arg, uint16_t *value, int base)
 {
     char *endptr = NULL;
     uint16_t val;
@@ -177,7 +185,7 @@ void super_regs(int argc, char *argv[])
         z80_show_regs();
     else if(argc == 2){
         uint16_t value;
-        if(!readint16(argv[1], &value, 16)){
+        if(!parse_int16(argv[1], &value, 16)){
             report("error: bad register value\r\n");
             return;
         }
@@ -202,10 +210,8 @@ void super_regs(int argc, char *argv[])
 
 void super_step(int argc, char *argv[])
 {
-    if(z80_bus_trace == TR_OFF){
-        report("step: cannot step without bus tracing\r\n");
+    if(not_in_supervised_mode())
         return;
-    }
 
     if(!z80_clk_is_stopped()){
         report("step: stopping clock\r\n");
@@ -268,11 +274,7 @@ void super_clk(int argc, char *argv[])
     }
 
     if(setclk){
-        if(f > CLK_SLOW_MAX_FREQUENCY && z80_bus_trace != TR_OFF){
-            report("clock: disabling bus tracing for high speed\r\n");
-            z80_bus_trace = TR_OFF;
-        }
-        if(z80_bus_trace != TR_OFF && f != 0.0)
+        if(z80_supervised_mode())
             z80_clk_set_supervised(f);
         else
             z80_clk_set_independent(f);
@@ -316,7 +318,7 @@ void super_loadfile(int argc, char *argv[])
                 "note: address is in hex\r\n");
     }else {
         uint16_t address;
-        if(!readint16(argv[1], &address, 16)){
+        if(!parse_int16(argv[1], &address, 16)){
             report("error: bad load address\r\n");
         }else{
             report("loadfile \"%s\" at 0x%04x: ", argv[0], address);
@@ -333,12 +335,13 @@ void super_trace(int argc, char *argv[])
 {
     bool help = false;
 
+    if(not_in_supervised_mode())
+        return;
+
     if(argc != 1)
         help = true;
     else{
-        if(!strcasecmp(argv[0], "off"))
-            z80_bus_trace = TR_OFF;
-        else if(!strcasecmp(argv[0], "silent"))
+        if(!strcasecmp(argv[0], "silent"))
             z80_bus_trace = TR_SILENT;
         else if(!strcasecmp(argv[0], "inst"))
             z80_bus_trace = TR_INST;
@@ -346,12 +349,6 @@ void super_trace(int argc, char *argv[])
             z80_bus_trace = TR_BUS;
         else
             help = true;
-        if(!help && !z80_clk_is_stopped()){
-            if(z80_bus_trace > 0)
-                z80_clk_set_supervised(z80_clk_get_frequency());
-            else
-                z80_clk_set_independent(z80_clk_get_frequency());
-        }
     }
 
     if(help){
@@ -517,12 +514,11 @@ void super_in(int argc, char *argv[])
         report("error: syntax: in [port]\r\n");
     }else {
         uint16_t port, value;
-        if(!readint16(argv[0], &port, 16)){
+        if(!parse_int16(argv[0], &port, 16)){
             report("error: bad port address\r\n");
         }else{
-            begin_dma();
+            // TODO check this is safe (previously we would explicitly switch to DMA mode)
             value = iodevice_read(port);
-            end_dma();
             report("input from I/O port 0x%04x: 0x%02x\r\n", port, value);
         }
     }
@@ -534,15 +530,14 @@ void super_out(int argc, char *argv[])
         report("error: syntax: out [port] [value]\r\n");
     }else {
         uint16_t port, value;
-        if(!readint16(argv[0], &port, 16)){
+        if(!parse_int16(argv[0], &port, 16)){
             report("error: bad port address\r\n");
         }else{
-            if(!readint16(argv[1], &value, 16) || value > 0xFF)
+            if(!parse_int16(argv[1], &value, 16) || value > 0xFF)
                 report("error: bad value\r\n");
             else{
-                begin_dma();
+                // TODO check this is safe (previously we would explicitly switch to DMA mode)
                 iodevice_write(port, value);
-                end_dma();
             }
         }
     }
@@ -554,7 +549,7 @@ void super_run(int argc, char *argv[])
         report("error: syntax: run [address]\r\n");
     }else {
         uint16_t address;
-        if(!readint16(argv[0], &address, 16)){
+        if(!parse_int16(argv[0], &address, 16)){
             report("error: bad address\r\n");
         }else{
             z80_set_register(Z80_REG_PC, address);
@@ -592,7 +587,7 @@ void super_mount(int argc, char *argv[])
         report("error: syntax: mount [disknum] <filename> <ro|rw>\r\n");
         return;
     }
-    if(!readint16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
+    if(!parse_int16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
         report("error: bad disk number (0--%d)\r\n", NUM_DISK_DRIVES-1);
         return;
     }
@@ -621,7 +616,7 @@ void super_umount(int argc, char *argv[])
         report("error: syntax: unmount [disknum]\r\n");
         return;
     }
-    if(!readint16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
+    if(!parse_int16(argv[0], &disknum, 10) || disknum >= NUM_DISK_DRIVES){
         report("error: bad disk number (0--%d)\r\n", NUM_DISK_DRIVES-1);
         return;
     }

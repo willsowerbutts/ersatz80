@@ -1,298 +1,18 @@
+#include <Arduino.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include "z80.h"
+#include "z80io.h"
 #include "clock.h"
 #include "serial.h"
 #include "debug.h"
 #include "super.h"
-#include "rom.h"
 #include "irq.h"
+#include "mmu.h"
 #include "timer.h"
 #include "disk.h"
-
-#define UART_RX_FIFO_BUFFER_SIZE 128
-uint8_t uart_rx_fifo_waiting = 0;
-uint8_t uart_rx_fifo_start = 0;
-uint8_t uart_rx_fifo_buffer[UART_RX_FIFO_BUFFER_SIZE];
-bool uart0_on_console = true;
-
-bool uart_rx_fifo_push(uint8_t keyin)
-{
-    if(uart_rx_fifo_waiting >= UART_RX_FIFO_BUFFER_SIZE)
-        return false;
-
-    // if we start using interrupts, consider atomicity
-    uart_rx_fifo_buffer[(uart_rx_fifo_start + uart_rx_fifo_waiting) % UART_RX_FIFO_BUFFER_SIZE] = keyin;
-    uart_rx_fifo_waiting++;
-    return true;
-}
-
-uint8_t uart_rx_fifo_pop(void)
-{
-    uint8_t r;
-    if(!uart_rx_fifo_waiting)
-        return 0xff;
-
-    // if we start using interrupts, consider atomicity
-    r = uart_rx_fifo_buffer[uart_rx_fifo_start];
-    uart_rx_fifo_waiting--;
-    uart_rx_fifo_start = (uart_rx_fifo_start+1) % UART_RX_FIFO_BUFFER_SIZE;
-    return r;
-}
-
-uint8_t uart_read_status(uint16_t address)
-{
-    if(uart0_on_console){
-        return (uart_rx_fifo_waiting ? 0x80 : 0x00) | (Serial.availableForWrite()>0 ? 0x00 : 0x40);
-    }else{
-        return (Serial6.available() ? 0x80 : 0x00) | (Serial6.availableForWrite()>0 ? 0x00 : 0x40);
-    }
-}
-
-uint8_t uart_read_data(uint16_t address)
-{
-    if(uart0_on_console)
-        return uart_rx_fifo_pop();
-    else
-        return Serial6.read();
-
-}
-
-void uart_write_data(uint16_t address, uint8_t value)
-{
-    if(uart0_on_console){
-        debug_mode_user();
-        Serial.write(value);
-    }else{
-        if(Serial6.availableForWrite() > 0)
-            Serial6.write(value);
-    }
-}
-
-bool uart_interrupt_request(void)
-{
-    if(uart0_on_console){
-        return uart_rx_fifo_waiting;
-    }else{
-        return Serial6.available();
-    }
-}
-
-void user_leds_write(uint16_t address, uint8_t value)
-{
-    if(address & 1)
-        user_led = (user_led & 0xFF) | ((value & 0x0F) << 8);
-    else
-        user_led = (user_led & 0xFF00) | value;
-    shift_register_update();
-}
-
-uint8_t user_leds_read(uint16_t address)
-{
-    if(address & 1)
-        return (user_led >> 8) & 0x0F;
-    else
-        return user_led & 0xFF;
-}
-
-uint8_t mmu_foreign_read(uint16_t address)
-{
-    return mmu_foreign[address & 3];
-}
-
-void mmu_foreign_write(uint16_t address, uint8_t value)
-{
-    mmu_foreign[address & 3] = value;
-}
-
-uint8_t mmu_read(uint16_t address)
-{
-    return mmu[address & 3];
-}
-
-void mmu_write(uint16_t address, uint8_t value)
-{
-    z80_bus_master();
-    z80_set_mmu(address & 3, value);
-    z80_bus_slave();
-}
-
-void timer_write(uint16_t address, uint8_t value)
-{
-    static unsigned long last_timer = 0;
-    unsigned long now;
-
-    now = micros();
-    if(value)
-        report("timer: %lu\r\n", now-last_timer);
-    last_timer = now;
-}
-
-typedef struct {
-    uint8_t (*read_function)(uint16_t address);
-    void (*write_function)(uint16_t address, uint8_t value);
-} ioregister_functions_t;
-
-const ioregister_functions_t io_register_handler[256] = {
-    { uart_read_status,     NULL },                 // 0x00 - UART 0 status
-    { uart_read_data,       uart_write_data },      // 0x01 - UART 0 data
-    { NULL,                 NULL },                 // 0x02   (reserved for UART 1)
-    { NULL,                 NULL },                 // 0x03   ...
-    { NULL,                 NULL },                 // 0x04   (reserved for UART 2)
-    { NULL,                 NULL },                 // 0x05   ...
-    { NULL,                 NULL },                 // 0x06   (reserved for UART 3)
-    { NULL,                 NULL },                 // 0x07   ...
-    { NULL,                 NULL },                 // 0x08   (reserved for UART 4)
-    { NULL,                 NULL },                 // 0x09   ...
-    { NULL,                 NULL },                 // 0x0a   (reserved for UART 5)
-    { NULL,                 NULL },                 // 0x0b   ...
-    { NULL,                 NULL },                 // 0x0c   (reserved for UART 6)
-    { NULL,                 NULL },                 // 0x0d   ...
-    { NULL,                 NULL },                 // 0x0e   (reserved for UART 7)
-    { NULL,                 NULL },                 // 0x0f   ...
-    { user_leds_read,       user_leds_write },      // 0x10 - user LEDs (low 8 bits)
-    { user_leds_read,       user_leds_write },      // 0x11 - user LEDs (top 4 bits)
-    { NULL,                 timer_write },          // 0x12 - handy timer doodah
-    { NULL,                 NULL },                 // 0x13
-    { NULL,                 NULL },                 // 0x14
-    { NULL,                 NULL },                 // 0x15
-    { NULL,                 NULL },                 // 0x16
-    { NULL,                 NULL },                 // 0x17
-    { int_requests_read,    int_requests_write },   // 0x18 - interrupt controller (status / clear pending)
-    { int_mask_read,        int_mask_write },       // 0x19 - interrupt controller (mask)
-    { timer_read_status,    timer_write_control },  // 0x1a - timer status and control register
-    { NULL,                 NULL },                 // 0x1b
-    { NULL,                 NULL },                 // 0x1c
-    { NULL,                 NULL },                 // 0x1d
-    { NULL,                 NULL },                 // 0x1e
-    { NULL,                 NULL },                 // 0x1f
-    { NULL,                 NULL },                 // 0x20   (reserved for disk interface extensions)
-    { disk_sector_read,     disk_sector_write   },  // 0x21 - disk interface (sector bits 16--23)
-    { disk_sector_read,     disk_sector_write   },  // 0x22 - disk interface (sector bits 8--15)
-    { disk_sector_read,     disk_sector_write   },  // 0x23 - disk interface (sector bits 0--7)
-    { disk_address_read,    disk_address_write  },  // 0x24 - disk interface (DMA address bits 16--21 + 2 flags)
-    { disk_address_read,    disk_address_write  },  // 0x25 - disk interface (DMA address bits 8--15)
-    { disk_address_read,    disk_address_write  },  // 0x26 - disk interface (DMA address bits 0--7)
-    { disk_seccount_read,   disk_seccount_write },  // 0x27 - disk interface (sector count)
-    { disk_status_read,     disk_command_write  },  // 0x28 - disk interface (command/status)
-    { NULL,                 NULL },                 // 0x29
-    { NULL,                 NULL },                 // 0x2a
-    { NULL,                 NULL },                 // 0x2b
-    { NULL,                 NULL },                 // 0x2c
-    { NULL,                 NULL },                 // 0x2d
-    { NULL,                 NULL },                 // 0x2e
-    { NULL,                 NULL },                 // 0x2f
-    { NULL,                 NULL },                 // 0x30
-    { NULL,                 NULL },                 // 0x31
-    { NULL,                 NULL },                 // 0x32
-    { NULL,                 NULL },                 // 0x33
-    { NULL,                 NULL },                 // 0x34
-    { NULL,                 NULL },                 // 0x35
-    { NULL,                 NULL },                 // 0x36
-    { NULL,                 NULL },                 // 0x37
-    { NULL,                 NULL },                 // 0x38
-    { NULL,                 NULL },                 // 0x39
-    { NULL,                 NULL },                 // 0x3a
-    { NULL,                 NULL },                 // 0x3b
-    { NULL,                 NULL },                 // 0x3c
-    { NULL,                 NULL },                 // 0x3d
-    { NULL,                 NULL },                 // 0x3e
-    { NULL,                 NULL },                 // 0x3f
-    { NULL,                 NULL },                 // 0x40
-    { NULL,                 NULL },                 // 0x41
-    { NULL,                 NULL },                 // 0x42
-    { NULL,                 NULL },                 // 0x43
-    { NULL,                 NULL },                 // 0x44
-    { NULL,                 NULL },                 // 0x45
-    { NULL,                 NULL },                 // 0x46
-    { NULL,                 NULL },                 // 0x47
-    { NULL,                 NULL },                 // 0x48
-    { NULL,                 NULL },                 // 0x49
-    { NULL,                 NULL },                 // 0x4a
-    { NULL,                 NULL },                 // 0x4b
-    { NULL,                 NULL },                 // 0x4c
-    { NULL,                 NULL },                 // 0x4d
-    { NULL,                 NULL },                 // 0x4e
-    { NULL,                 NULL },                 // 0x4f
-    { NULL,                 NULL },                 // 0x50
-    { NULL,                 NULL },                 // 0x51
-    { NULL,                 NULL },                 // 0x52
-    { NULL,                 NULL },                 // 0x53
-    { NULL,                 NULL },                 // 0x54
-    { NULL,                 NULL },                 // 0x55
-    { NULL,                 NULL },                 // 0x56
-    { NULL,                 NULL },                 // 0x57
-    { NULL,                 NULL },                 // 0x58
-    { NULL,                 NULL },                 // 0x59
-    { NULL,                 NULL },                 // 0x5a
-    { NULL,                 NULL },                 // 0x5b
-    { NULL,                 NULL },                 // 0x5c
-    { NULL,                 NULL },                 // 0x5d
-    { NULL,                 NULL },                 // 0x5e
-    { NULL,                 NULL },                 // 0x5f
-    { NULL,                 NULL },                 // 0x60
-    { NULL,                 NULL },                 // 0x61
-    { NULL,                 NULL },                 // 0x62
-    { NULL,                 NULL },                 // 0x63
-    { NULL,                 NULL },                 // 0x64
-    { NULL,                 NULL },                 // 0x65
-    { NULL,                 NULL },                 // 0x66
-    { NULL,                 NULL },                 // 0x67
-    { NULL,                 NULL },                 // 0x68
-    { NULL,                 NULL },                 // 0x69
-    { NULL,                 NULL },                 // 0x6a
-    { NULL,                 NULL },                 // 0x6b
-    { NULL,                 NULL },                 // 0x6c
-    { NULL,                 NULL },                 // 0x6d
-    { NULL,                 NULL },                 // 0x6e
-    { NULL,                 NULL },                 // 0x6f
-    { NULL,                 NULL },                 // 0x70
-    { NULL,                 NULL },                 // 0x71
-    { NULL,                 NULL },                 // 0x72
-    { NULL,                 NULL },                 // 0x73
-    { NULL,                 NULL },                 // 0x74
-    { NULL,                 NULL },                 // 0x75
-    { NULL,                 NULL },                 // 0x76
-    { NULL,                 NULL },                 // 0x77
-    { mmu_read,             mmu_write },            // 0x78 - MMU bank 0 select (Zeta2 compatible)
-    { mmu_read,             mmu_write },            // 0x79 - MMU bank 1 select (Zeta2 compatible)
-    { mmu_read,             mmu_write },            // 0x7a - MMU bank 2 select (Zeta2 compatible)
-    { mmu_read,             mmu_write },            // 0x7b - MMU bank 3 select (Zeta2 compatible)
-    { mmu_foreign_read,     mmu_foreign_write },    // 0x7c - MMU foreign context bank 0 select
-    { mmu_foreign_read,     mmu_foreign_write },    // 0x7d - MMU foreign context bank 1 select
-    { mmu_foreign_read,     mmu_foreign_write },    // 0x7e - MMU foreign context bank 2 select
-    { mmu_foreign_read,     mmu_foreign_write },    // 0x7f - MMU foreign context bank 3 select
-    // remaining unspecified entries come out as {NULL,NULL}.
-};
-
-uint8_t iodevice_read(uint16_t address)
-{
-    if(io_register_handler[address & 0xFF].read_function)
-        return io_register_handler[address & 0xFF].read_function(address);
-    report("[IOR %04x]", address);
-    return 0xAA;
-}
-
-void iodevice_write(uint16_t address, uint8_t value) // call ONLY when in DMA mode!
-{
-    if(io_register_handler[address & 0xFF].write_function)
-        io_register_handler[address & 0xFF].write_function(address, value);
-    else{
-        report("[IOW %04x %02x]", address, value);
-    }
-}
-
-uint8_t memory_read(uint16_t address)
-{
-    return basic_rom[address & ROM_ADDR_MASK];
-}
-
-void memory_write(uint16_t address, uint8_t value)
-{
-    // nop
-}
+#include "rom.h"
 
 static bool usb_acm_supervisor_input_mode = false;
 void handle_usb_acm_input(void)
@@ -323,49 +43,8 @@ void handle_usb_acm_input(void)
     }
 }
 
-bool check_pcb_revision(void)
-{
-    // perform a simple test to try and catch when the PCB revision is misconfigured
-    bool okay = true;
-    pinMode(Z80_BUSRQ, OUTPUT);
-    pinMode(CLK_FAST_ENABLE, OUTPUT);
-    pinMode(CLK_STROBE, OUTPUT);
-    digitalWrite(CLK_FAST_ENABLE, 0);
-    digitalWrite(Z80_BUSRQ, 0); // request DMA
-    // can't rely on Z80_BUSACK being connected so just send a bunch of clocks out
-    for(int i=0; i<20; i++){
-        digitalWrite(CLK_STROBE, 1);
-        delayMicroseconds(50);
-        digitalWrite(CLK_STROBE, 0);
-        delayMicroseconds(50);
-    }
-    pinMode(Z80_IORQ, OUTPUT);
-    pinMode(WAIT_RESET, OUTPUT);
-    digitalWrite(Z80_IORQ, 1);
-    digitalWrite(WAIT_RESET, 0); // release /WAIT
-    delayMicroseconds(50);
-    digitalWrite(WAIT_RESET, 1); 
-    delayMicroseconds(50);
-    if(!digitalRead(Z80_WAIT)) // should be 1
-        okay = false;
-    digitalWrite(Z80_IORQ, 0);  // strobe /IORQ, should assert /WAIT
-    delayMicroseconds(50);
-    digitalWrite(Z80_IORQ, 1); 
-    delayMicroseconds(50);
-    if(digitalRead(Z80_WAIT)) // should be 0
-        okay = false;
-    digitalWrite(WAIT_RESET, 0); // release /WAIT
-    delayMicroseconds(50);
-    digitalWrite(WAIT_RESET, 1); 
-    delayMicroseconds(50);
-    if(!digitalRead(Z80_WAIT)) // should be 1
-        okay = false;
-    digitalWrite(Z80_BUSRQ, 1); // release DMA
-    return okay;
-}
-
 void __assert_func(const char *__file, int __lineno, const char *__func, const char *__sexp) {
-    // put the Z80 bus in a safe mode where we're not driving any signals
+    // put the Z80 data and address bus into a safe mode where we're not driving any signals
     z80_bus_slave();
 
     // transmit diagnostic informations through serial link. 
@@ -391,42 +70,47 @@ void uart_setup(int baud)
     Serial6.attachRts(57);
 }
 
+/////////////////////////////////////////////////////////////
+void z80_check_mode_correct(void);
+/////////////////////////////////////////////////////////////
+
 void setup() 
 {
-    // TODO check any routine that uses z80_clk_pause()
-    // TODO option to direct console output to UART6 (pin 47 input RX, 48 output TX, 56 input CTS, any pin output RTS) see https://www.pjrc.com/teensy/td_uart.html
-    //      console usb, console uart, console uart 115200, console uart 1000000, etc.
-
-    z80_setup();
-    z80_clk_set_independent(0.0); // TODO roll into z80_setup
-    z80_do_reset();               // TODO roll into z80_setup
-    // z80_setup should: TODO TODO TODO TODO
-    //  - setup teensy GPIO
-    //  - setup shift register
-    //  - setup a supervised clock
-    //  - setup the new z80_mode variable
-    //  - send Z80 reset clocks (rewrite z80_do_reset -- perhaps just delay if the clk is independent?)
-
-    uart_setup(115200);   // setup (optional) Serial6
-    
-    // now wait for terminal software to connect to the USB ACM device
     Serial.begin(115200); // console on USB ACM device (baud rate is irrelevant)
-    while(!Serial.dtr());
 
+    if(!check_pcb_revision()){
+        while(true){
+            while(!Serial.dtr()); // wait for terminal software to connect to the USB ACM device
+#ifdef ERSATZ80_PCB_REV1
+            report("ERSATZ80_PCB_REV1 is #defined but this appears to be a different PCB. Edit interface.h and recompile.\r\n");
+#else
+            report("ERSATZ80_PCB_REV1 is not #defined but this appears to be a different PCB. Edit interface.h and recompile.\r\n");
+#endif
+            delay(1000);
+        }
+    }
+
+    ////////////////////////////////////////////
+    while(!Serial.dtr()); // wait for terminal software to connect to the USB ACM device
+    ////////////////////////////////////////////
+
+    z80_clk_init();
+    z80_setup();
+
+    ////////////////////////////////////////////
+    // z80_check_mode_correct();
+    ////////////////////////////////////////////
+
+    mmu_setup();
+    uart_setup(115200);   // setup Serial6 (optional UART on expansion port)
+
+    while(!Serial.dtr()); // wait for terminal software to connect to the USB ACM device
+    
     report("                     _       ___   ___  \r\n  ___ _ __ ___  __ _| |_ ___( _ ) / _ \\ \r\n"
            " / _ \\ '__/ __|/ _` | __|_  / _ \\| | | |\r\n|  __/ |  \\__ \\ (_| | |_ / / (_) | |_| |\r\n"
            " \\___|_|  |___/\\__,_|\\__/___\\___/ \\___/ \r\nersatz80: init (%.1fMHz ARM, %.1fMHz bus)\r\n", 
            F_CPU/1000000.0, F_BUS/1000000.0);
-    if(!check_pcb_revision()){
-        #ifdef ERSATZ80_PCB_REV1
-        report("ERSATZ80_PCB_REV1 defined but this appears to be a different PCB.\r\nUndefine ERSATZ80_PCB_REV1 in z80.h and recompile.\r\n");
-        #else
-        report("ERSATZ80_PCB_REV1 not defined but this does not appear to be a rev2 or later PCB.\r\nDefine ERSATZ80_PCB_REV1 in z80.h and recompile.\r\n");
-        #endif
-        while(1); // halt
-    }
     disk_setup();
-    mmu_setup();
     sram_setup();
 
     // TODO: boot to be directed by "boot.cmd" from SD card, with the below executed only
@@ -434,40 +118,35 @@ void setup()
     // commands.
     report("ersatz80: load ROM\r\n");
     load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
+    // TODO is another reset necessary here?
     report("ersatz80: reset Z80\r\n");
     z80_do_reset();
 
-    report("Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
+    report("ersatz80: Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
 
-    // fire up the Z80 -- this code should be moved into z80_setup() ideally
-    ram_ce = true;                               // TODO roll into z80_setup
-    shift_register_update();                     // TODO roll into z80_setup
-    z80_clk_set_independent(CLK_FAST_FREQUENCY); // TODO roll into z80_setup
+    // off we go!
+    z80_end_dma_mode();
+    z80_set_mode(MODE_UNSUPERVISED);
 }
 
+#define DISK_SYNC_INTERVAL      3000 // milliseconds
 void loop()
 {
     unsigned long now, disk_sync_due = 0;
 
     while(true){
         now = millis();
-        // poke the timer
-        handle_timer(now);
-        // handle Z80 interrupt line
-        handle_z80_interrupts();
-        // clock the CPU, if we're in supervised clock mode
-        if(z80_clk_is_supervised())
+        handle_timer(now);                      // poke the timer
+        handle_z80_interrupts();                // handle Z80 interrupt line
+        if(z80_clk_is_supervised())             // clock the CPU, if we're in supervised clock mode
             z80_clock_pulse();
-        // handle I/O and memory requests from the Z80
-        handle_z80_bus();
-        // handle user input over USB ACM serial
-        handle_usb_acm_input();
-        // periodically flush written data to the SD card
-        if(now >= disk_sync_due){
-            disk_sync();                     // sync all the disks
-            disk_sync_due += 3000;           // do it every 3 seconds
-            if(now >= disk_sync_due)         // did we miss the next appointment already?
-                disk_sync_due = now + 3000;  // rebase our timer
+        handle_z80_bus();                       // handle peripheral I/O and memory requests from the Z80
+        handle_usb_acm_input();                 // handle input over USB ACM serial
+        if(now >= disk_sync_due){               // periodically flush written data to the SD card
+            disk_sync();                        // sync all the disks
+            disk_sync_due += DISK_SYNC_INTERVAL;
+            if(now >= disk_sync_due)
+                disk_sync_due = now + DISK_SYNC_INTERVAL;
         }
     }
 }

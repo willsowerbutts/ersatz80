@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "debug.h"
 #include "z80.h"
+#include "z80io.h"
 #include "timer.h"
 #include "irq.h"
 
@@ -17,7 +18,7 @@ void handle_z80_interrupts(void)
 {
     int_active = z80_active_interrupts();
     if(int_active)
-        z80_assert_interrupt();
+        z80_set_irq(true);
 }
 
 uint8_t z80_active_interrupts(void)
@@ -42,28 +43,10 @@ uint8_t z80_irq_vector(void)
     return 0x00;
 }
 
-void z80_assert_interrupt(void)
-{
-    if(!z80_irq){
-        // report("[irq ON]");
-        z80_irq = true;
-        shift_register_update();
-    }
-}
-
-void z80_clear_interrupt(void)
-{
-    if(z80_irq){
-        z80_irq = false;
-        shift_register_update();
-        // report("[irq OFF]");
-    }
-}
-
 void int_requests_write(uint16_t address, uint8_t value)
 {
     if(!z80_active_interrupts())
-        z80_clear_interrupt();
+        z80_set_irq(false);
 }
 
 uint8_t int_requests_read(uint16_t address)

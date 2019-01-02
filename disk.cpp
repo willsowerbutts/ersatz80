@@ -1,6 +1,7 @@
 #include <Arduino.h>
-#include "debug.h"
+#include "mmu.h"
 #include "disk.h"
+#include "debug.h"
 
 #define MAX_SECTOR_SIZE 1024
 SdFatSdioEX sdcard;
@@ -124,7 +125,8 @@ void disk_transfer(bool write)
         return;
     }
 
-    begin_dma();
+    // enter DMA mode
+    z80_mode_t prev_mode = z80_set_dma_mode(write);
 
     if(disk[disk_selected].dma_address & 0x800000)
         z80_mmu_switch_context_foreign();
@@ -165,7 +167,7 @@ void disk_transfer(bool write)
     if(disk[disk_selected].dma_address & 0x800000)
         z80_mmu_switch_context_local();
 
-    end_dma();
+    z80_set_mode(prev_mode);
 }
 
 void disk_unmount(int nr)
