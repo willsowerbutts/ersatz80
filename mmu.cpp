@@ -12,11 +12,10 @@ static bool mmu_context_foreign = false;
 void mmu_setup(void)
 {
     mmu_context_foreign = false;
-    for(int i=0; i<4; i++){
-        mmu_foreign[i] = i;
-        mmu_shadow[i] = ~i; // force an update
-        z80_set_mmu(i, i);
-        z80_set_mmu_foreign(i, i);
+    for(int b=0; b<4; b++){
+        mmu_shadow[b] = ~b; // force an update
+        z80_set_mmu(b, b);
+        z80_set_mmu_foreign(b, b);
     }
 }
 
