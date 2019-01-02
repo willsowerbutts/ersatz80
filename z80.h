@@ -47,70 +47,17 @@ typedef enum { TR_SILENT, TR_INST, TR_BUS } z80_bus_trace_t;
 extern z80_bus_trace_t z80_bus_trace;
 extern int instruction_clock_cycles; // updated only when z80_bus_trace != TR_OFF
 
-/*
- * Modes of operation:
- *
- * MODE_UNSUPERVISED:
- *  - Z80 runs off an independent clock (either FTM or external crystal)
- *  - SRAM is enabled
- *  - Teensy cannot trace Z80 bus / instructions
- *  - Teensy acts only as a peripheral, using the WAIT signal for synchronisation
- *  - Cannot enchant the Z80 in this mode
- *  - DMA is possible but we have to wait for any in-flight instructions to complete first
- *  - Can transition to: MODE_UNSUPERVISED_DMA_READ, MODE_UNSUPERVISED_DMA_WRITE, MODE_SUPERVISED
- *
- * MODE_UNSUPERVISED_DMA_IDLE:
- *  - Used on completion of an I/O or memory request with an unsupervised clock where a Z80 DMA request is used for synchronisation
- *  - Teensy is not driving the control/address/data lines, so technically there is no bus master in this state
- *  - We might want to jump to DMA_READ/DMA_WRITE from here before we set the CPU running again
- *
- * MODE_UNSUPERVISED_DMA_READ:
- *  - Assert BUSRQ, wait for BUSACK, start driving RD, WR, IORQ, MREQ
- *  - Z80 releases control of bus (at the start of an arbitrary M cycle)
- *  - Teensy can freely access SRAM, MMU
- *  - Can transition to MODE_UNSUPERVISED, MODE_UNSUPERVISED_DMA_WRITE
- *
- * MODE_UNSUPERVISED_DMA_WRITE:
- *  - MODE_UNSUPERVISED_DMA_READ + we also drive data pins
- *  - Can transition to MODE_UNSUPERVISED, MODE_UNSUPERVISED_DMA_READ
- *
- * MODE_SUPERVISED:
- *  - Z80 runs off a synthesised clock (max 15MHz using FTM)
- *  - SRAM is enabled
- *  - Teensy traces Z80 bus / instructions, and is in sync with Z80 instruction decoding (including prefix opcodes)
- *  - Instructions are executed in full, with the end state being the M1 T1 cycle of the next instruction (ie PC on address bus, opcode fetch)
- *  - Teensy acts as peripheral using the WAIT signal for synchronisation
- *  - Teensy can act as debugger with breakpoints, modifying SRAM contents etc
- *  - Can transition to MODE_ENCHANTED, MODE_SUPERVISED_DMA, MODE_UNSUPERVISED
- *
- * MODE_ENCHANTED:
- *  - MODE_SUPERVISED with SRAM disabled so Teensy can feed in synthesised instructions
- *  - Can transition to MODE_SUPERVISED
- *
- * MODE_SUPERVISED_DMA_READ:
- *  - Accessed via MODE_ENCHANTED trick (we ended prev instruction in M1 T1; BUSRQ won't be registered until the end of this M cycle)
- *    - Enchant, feed in synthesised JR instruction, assert BUSRQ, wait for BUSACK, Disenchant
- *    - Then enable SRAM again
- *  - Z80 releases control of bus
- *  - Teensy can freely access SRAM, MMU
- *  - Can transition to MODE_SUPERVISED, MODE_SUPERVISED_DMA_WRITE
- *
- * MODE_SUPERVISED_DMA_WRITE:
- *  - MODE_SUPERVISED_DMA_READ + we also drive data pins
- *  - Can transition to MODE_SUPERVISED, MODE_SUPERVISED_DMA_READ
- */
-
-typedef enum {                   // Z80 clock   | Tracing | Bus Master | SRAM | Possible transitions
-// ------------------------------//-------------+---------+------------+------+----------------------
-    MODE_UNSUPERVISED,           // independent | no      | Z80        | yes  | MODE_UNSUPERVISED_DMA_READ, MODE_UNSUPERVISED_DMA_WRITE, MODE_SUPERVISED
-    MODE_UNSUPERVISED_DMA_IDLE,  // independent | no      | none       | yes  | MODE_UNSUPERVISED, MODE_UNSUPERVISED_DMA_WRITE, MODE_UNSUPERVISED_DMA_READ
-    MODE_UNSUPERVISED_DMA_READ,  // independent | no      | Teensy (R) | yes  | MODE_UNSUPERVISED, MODE_UNSUPERVISED_DMA_WRITE
-    MODE_UNSUPERVISED_DMA_WRITE, // independent | no      | Teensy (W) | yes  | MODE_UNSUPERVISED, MODE_UNSUPERVISED_DMA_READ
-    MODE_SUPERVISED,             // synthesised | yes     | Z80        | yes  | MODE_SUPERVISED_DMA_READ, MODE_SUPERVISED_DMA_WRITE, MODE_UNSUPERVISED, MODE_ENCHANTED
-    MODE_SUPERVISED_DMA_IDLE,    // synthesised | yes     | none       | yes  | MODE_SUPERVISED, MODE_SUPERVISED_DMA_WRITE, MODE_SUPERVISED_DMA_READ
-    MODE_SUPERVISED_DMA_READ,    // synthesised | yes     | Teensy (R) | yes  | MODE_SUPERVISED, MODE_SUPERVISED_DMA_WRITE
-    MODE_SUPERVISED_DMA_WRITE,   // synthesised | yes     | Teensy (W) | yes  | MODE_SUPERVISED, MODE_SUPERVISED_DMA_READ
-    MODE_ENCHANTED,              // synthesised | no      | Z80        | no   | MODE_SUPERVISED
+typedef enum {                   // Z80 clock   | Tracing | Bus Master | SRAM 
+// ------------------------------//-------------+---------+------------+------
+    MODE_UNSUPERVISED,           // independent | no      | Z80        | yes  
+    MODE_UNSUPERVISED_DMA_IDLE,  // independent | no      | none       | yes  
+    MODE_UNSUPERVISED_DMA_READ,  // independent | no      | Teensy (R) | yes  
+    MODE_UNSUPERVISED_DMA_WRITE, // independent | no      | Teensy (W) | yes  
+    MODE_SUPERVISED,             // synthesised | yes     | Z80        | yes  
+    MODE_SUPERVISED_DMA_IDLE,    // synthesised | yes     | none       | yes  
+    MODE_SUPERVISED_DMA_READ,    // synthesised | yes     | Teensy (R) | yes  
+    MODE_SUPERVISED_DMA_WRITE,   // synthesised | yes     | Teensy (W) | yes  
+    MODE_ENCHANTED,              // synthesised | no      | Z80        | no   
 } z80_mode_t;
 
 extern z80_mode_t z80_mode;
