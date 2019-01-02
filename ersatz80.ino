@@ -70,10 +70,6 @@ void uart_setup(int baud)
     Serial6.attachRts(57);
 }
 
-/////////////////////////////////////////////////////////////
-void z80_check_mode_correct(void);
-/////////////////////////////////////////////////////////////
-
 void setup() 
 {
     Serial.begin(115200); // console on USB ACM device (baud rate is irrelevant)
@@ -90,17 +86,8 @@ void setup()
         }
     }
 
-    ////////////////////////////////////////////
-    while(!Serial.dtr()); // wait for terminal software to connect to the USB ACM device
-    ////////////////////////////////////////////
-
     z80_clk_init();
     z80_setup();
-
-    ////////////////////////////////////////////
-    // z80_check_mode_correct();
-    ////////////////////////////////////////////
-
     mmu_setup();
     uart_setup(115200);   // setup Serial6 (optional UART on expansion port)
 
