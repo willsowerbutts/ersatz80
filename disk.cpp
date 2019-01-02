@@ -126,7 +126,7 @@ void disk_transfer(bool write)
     }
 
     // enter DMA mode
-    z80_mode_t prev_mode = z80_set_dma_mode(write);
+    z80_enter_dma_mode(write);
 
     if(disk[disk_selected].dma_address & 0x800000)
         z80_mmu_switch_context_foreign();
@@ -166,8 +166,6 @@ void disk_transfer(bool write)
 
     if(disk[disk_selected].dma_address & 0x800000)
         z80_mmu_switch_context_local();
-
-    z80_set_mode(prev_mode);
 }
 
 void disk_unmount(int nr)

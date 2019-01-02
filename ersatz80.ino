@@ -126,7 +126,7 @@ void setup()
 
     // off we go!
     z80_end_dma_mode();
-    z80_set_mode(MODE_UNSUPERVISED);
+    z80_set_mode(Z80_UNSUPERVISED);
 }
 
 #define DISK_SYNC_INTERVAL      3000 // milliseconds
@@ -142,6 +142,7 @@ void loop()
             z80_clock_pulse();
         handle_z80_bus();                       // handle peripheral I/O and memory requests from the Z80
         handle_usb_acm_input();                 // handle input over USB ACM serial
+        z80_end_dma_mode();
         if(now >= disk_sync_due){               // periodically flush written data to the SD card
             disk_sync();                        // sync all the disks
             disk_sync_due += DISK_SYNC_INTERVAL;

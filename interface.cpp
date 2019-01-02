@@ -392,7 +392,7 @@ void z80_setup(void)
     z80_set_mmu_ew(false);
     z80_set_ram_ce(true);
     z80_set_release_wait(false);
-    z80_mode = MODE_SUPERVISED;
+    z80_mode = Z80_SUPERVISED;
 
     z80_do_reset();
 }

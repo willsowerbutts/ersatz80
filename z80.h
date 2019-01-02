@@ -47,25 +47,29 @@ typedef enum { TR_SILENT, TR_INST, TR_BUS } z80_bus_trace_t;
 extern z80_bus_trace_t z80_bus_trace;
 extern int instruction_clock_cycles; // updated only when z80_bus_trace != TR_OFF
 
-typedef enum {                   // Z80 clock   | Tracing | Bus Master | SRAM 
-// ------------------------------//-------------+---------+------------+------
-    MODE_UNSUPERVISED,           // independent | no      | Z80        | yes  
-    MODE_UNSUPERVISED_DMA_IDLE,  // independent | no      | none       | yes  
-    MODE_UNSUPERVISED_DMA_READ,  // independent | no      | Teensy (R) | yes  
-    MODE_UNSUPERVISED_DMA_WRITE, // independent | no      | Teensy (W) | yes  
-    MODE_SUPERVISED,             // synthesised | yes     | Z80        | yes  
-    MODE_SUPERVISED_DMA_IDLE,    // synthesised | yes     | none       | yes  
-    MODE_SUPERVISED_DMA_READ,    // synthesised | yes     | Teensy (R) | yes  
-    MODE_SUPERVISED_DMA_WRITE,   // synthesised | yes     | Teensy (W) | yes  
-    MODE_ENCHANTED,              // synthesised | no      | Z80        | no   
+typedef enum {         // Z80 clock   | Tracing | SRAM 
+// --------------------//-------------+---------+------
+    Z80_UNSUPERVISED,  // independent | no      | yes  
+    Z80_SUPERVISED,    // synthesised | yes     | yes  
+    Z80_ENCHANTED,     // synthesised | no      | no   
 } z80_mode_t;
-
 extern z80_mode_t z80_mode;
+
+typedef enum {         // Bus master | Control | Address | Data
+// --------------------//------------+---------+---------+--------
+    DMA_SLAVE,         // Z80        | input   | input   | input
+    DMA_IDLE,          // Teensy     | input   | input   | input
+    DMA_READ,          // Teensy     | output  | output  | input
+    DMA_WRITE,         // Teensy     | output  | output  | output
+} dma_mode_t;
+extern dma_mode_t dma_mode;
+
 z80_mode_t z80_set_mode(z80_mode_t new_mode); // returns previous mode
-z80_mode_t z80_set_dma_mode(bool writing);    // returns previous mode
-z80_mode_t z80_end_dma_mode(void);            // returns previous mode
+void z80_enter_dma_mode(bool writing);
+void z80_end_dma_mode(void);
 bool z80_supervised_mode(void);               // is the clock synthesised in this mode?
 const char *z80_mode_name(z80_mode_t mode);
+const char *dma_mode_name(dma_mode_t mode);
 
 extern int ram_pages;     // count of 16KB SRAM pages
 

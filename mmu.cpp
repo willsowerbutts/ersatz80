@@ -25,7 +25,7 @@ static void z80_mmu_write(uint8_t bank, uint8_t page)
     if(mmu_shadow[bank] == page)
         return;
     mmu_shadow[bank] = page;
-    z80_set_dma_mode(true);
+    z80_enter_dma_mode(true);
     z80_bus_set_address_data(bank << 14, page);
     z80_set_mmu_ew(true);
     delayMicroseconds(1);
