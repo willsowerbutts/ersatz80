@@ -107,15 +107,3 @@ void z80_bus_trace_state(void)
                 z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
                 z80_m1_asserted() ? "M1" : "  ");
 }
-
-bool z80_supervised_mode(void)
-{
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            return false;
-        case Z80_SUPERVISED:
-        case Z80_ENCHANTED:
-            return true;
-    }
-    assert(false);
-}
