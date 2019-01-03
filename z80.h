@@ -45,7 +45,7 @@ void handle_z80_bus(void);
 // TR_BUS:    trace and print bus states and decoded instructions
 typedef enum { TR_SILENT, TR_INST, TR_BUS } z80_bus_trace_t;
 extern z80_bus_trace_t z80_bus_trace;
-extern int instruction_clock_cycles; // updated only when z80_bus_trace != TR_OFF
+extern int instruction_clock_cycles; // not updated in Z80_UNSUPERVISED mode
 
 typedef enum {         // Z80 clock   | Tracing | SRAM 
 // --------------------//-------------+---------+------
@@ -70,6 +70,11 @@ void z80_end_dma_mode(void);
 bool z80_supervised_mode(void);               // is the clock synthesised in this mode?
 const char *z80_mode_name(z80_mode_t mode);
 const char *dma_mode_name(dma_mode_t mode);
+
+uint8_t z80_enchanted_cpu_read(uint16_t *address=NULL);
+uint16_t z80_enchanted_cpu_write(uint8_t data);
+uint16_t z80_enchanted_cpu_read16(uint16_t *address=NULL);
+uint16_t z80_enchanted_cpu_write16(uint16_t value);
 
 extern int ram_pages;     // count of 16KB SRAM pages
 

@@ -10,7 +10,6 @@
 #include "disk.h"
 #include "disasm.h"
 
-#define MEMORY_WIPE_VALUE 0x76 // at reset, fill RAM with HALT instructions
 #undef MODE_SWITCH_DEBUGGING   // debug switching between Z80 interface modes
 /*
  * === Z80 modes ===
@@ -57,7 +56,6 @@
  * DMA_WRITE: We are driving control, address and data lines.
  */
 
-z80_bus_trace_t z80_bus_trace = TR_SILENT;
 z80_mode_t z80_mode = Z80_SUPERVISED;
 dma_mode_t dma_mode = DMA_SLAVE;
 int ram_pages;     // count of 16KB SRAM pages
@@ -209,22 +207,228 @@ void z80_memory_read_block(uint16_t address, uint8_t *dataptr, uint16_t count)
     z80_set_mreq(false);
 }
 
-void z80_wipe_page(void) // wipe the 16KB memory page in bank 0
+inline void z80_complete_read(uint8_t data)
 {
-    z80_enter_dma_mode(true);
+    z80_bus_data_outputs();
+    z80_bus_set_data(data);
+    z80_set_busrq(true);
+    z80_set_release_wait(true);
+    while(!z80_busack_asserted())
+        if(!z80_clk_is_independent())
+            z80_clock_pulse();
+    z80_bus_data_inputs();
+    z80_set_release_wait(false);
+    dma_mode = DMA_IDLE;
+}
 
-    z80_bus_set_address_data(0, MEMORY_WIPE_VALUE); // fill RAM with 0x76 (HALT instruction)
-    z80_set_mreq(true);
-    z80_set_wr(true);
-    for(int i=1; i<0x4000; i++){
-        z80_bus_set_address(i);
+inline void z80_complete_write(void)
+{
+    z80_set_busrq(true);
+    z80_set_release_wait(true);
+    while(!z80_busack_asserted())
+        if(!z80_clk_is_independent())
+            z80_clock_pulse();
+    z80_set_release_wait(false);
+    dma_mode = DMA_IDLE;
+}
+
+void handle_z80_bus(void)
+{
+    if(z80_wait_asserted()){
+        if(z80_iorq_asserted()){
+            if(z80_rd_asserted()){       // I/O read
+                z80_complete_read(iodevice_read(z80_read_bus_address()));
+            }else if(z80_wr_asserted()){ // I/O write
+                z80_complete_write();
+                iodevice_write(z80_read_bus_address_low8(), z80_read_bus_data());
+            }else if(z80_m1_asserted()){ // Interrupt acknowledge
+                z80_complete_read(z80_irq_vector());
+            }else
+                report("ersatz80: iorq weird?\r\n");
+        } else if(z80_mreq_asserted()){
+            if(z80_rd_asserted()){       // Memory read
+                z80_complete_read(memory_read(z80_read_bus_address()));
+            }else if(z80_wr_asserted()){ // Memory write
+                z80_complete_write();
+                memory_write(z80_read_bus_address_low8(), z80_read_bus_data());
+            }else
+                report("ersatz80: mreq weird?\r\n");
+        } else
+            report("ersatz80: wait weird?\r\n");
+        // z80_end_dma_mode(); // Hmmmmmm. Can we safely get rid of this?
     }
-    z80_set_wr(false);
-    z80_set_mreq(false);
+}
+
+const char *z80_mode_name(z80_mode_t mode)
+{
+    switch(mode){
+        case Z80_SUPERVISED:   return "Z80_SUPERVISED";
+        case Z80_UNSUPERVISED: return "Z80_UNSUPERVISED";
+        case Z80_ENCHANTED:    return "Z80_ENCHANTED";
+        default: assert(false);
+    }
+}
+
+const char *dma_mode_name(dma_mode_t mode)
+{
+    switch(mode){
+        case DMA_SLAVE:         return "DMA_SLAVE";
+        case DMA_IDLE:          return "DMA_IDLE";
+        case DMA_READ:          return "DMA_READ";
+        case DMA_WRITE:         return "DMA_WRITE";
+        default: assert(false);
+    }
+}
+
+void z80_enter_dma_mode(bool writing)
+{
+    switch(dma_mode){
+        case DMA_WRITE:
+            if(!writing){
+                z80_bus_data_inputs();
+                dma_mode = DMA_READ;
+            }
+            break;
+        case DMA_READ:
+            if(writing){
+                z80_bus_data_outputs();
+                dma_mode = DMA_WRITE;
+            }
+            break;
+        case DMA_SLAVE:
+            switch(z80_mode){
+                case Z80_UNSUPERVISED:
+                    do{
+                        z80_set_busrq(true); // handle_z80_bus() may clear this
+                        handle_z80_bus();
+                    } while(!z80_busack_asserted());
+                    break;
+                case Z80_SUPERVISED:
+                    z80_set_ram_ce(false);
+                    z80_enchanted_cpu_write(0x18); // JR ...
+                    z80_enchanted_cpu_write(0xFE); // ... -2
+                    z80_set_busrq(true);
+                    z80_set_ram_ce(true);
+                    while(!z80_busack_asserted())
+                        z80_clock_pulse();
+                    break;
+                case Z80_ENCHANTED:
+                    assert(false); // this isn't supported (yet...)
+                    break;
+            }
+            // fall through ...
+        case DMA_IDLE:
+            if(writing){
+                z80_bus_master(true);
+                dma_mode = DMA_WRITE;
+            }else{
+                z80_bus_master(false);
+                dma_mode = DMA_READ;
+            }
+            break;
+    }
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
+}
+
+void z80_end_dma_mode(void)
+{
+    switch(dma_mode){
+        case DMA_SLAVE:
+            break;
+        case DMA_WRITE:
+        case DMA_READ:
+            z80_bus_slave();
+            // fall through ...
+        case DMA_IDLE:
+            z80_set_busrq(false);
+            dma_mode = DMA_SLAVE;
+            break;
+    }
+    switch(z80_mode){
+        case Z80_UNSUPERVISED:
+            break;
+        case Z80_SUPERVISED:
+            z80_bus_slave();
+            z80_set_busrq(false);
+            while(z80_busack_asserted())
+                z80_clock_pulse();
+            // TODO may need to clock forward here until M1 T1 is reached?
+            break;
+        case Z80_ENCHANTED:
+            assert(false); // this isn't supported (yet...)
+    }
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
+}
+
+z80_mode_t z80_set_mode(z80_mode_t new_mode)
+{
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
+
+    if(z80_mode == new_mode)
+        return z80_mode;
+
+    z80_end_dma_mode();
+
+    switch(z80_mode){
+        case Z80_UNSUPERVISED:
+            switch(new_mode){
+                case Z80_SUPERVISED:
+                    z80_clk_set_supervised(0.0);
+                    // TODO: handle HALT etc
+                    // TODO: trace a few opcodes until we know we are in sync with the decoder
+                    while(!z80_m1_asserted() || z80_mreq_asserted()){ // stop at start of M1
+                        z80_clock_pulse();
+                        handle_z80_bus();
+                    }
+                    break;
+                default:
+                    assert(false);
+            }
+            break;
+
+        case Z80_SUPERVISED:
+            switch(new_mode){
+                case Z80_ENCHANTED:
+                    z80_set_ram_ce(false);
+                    break;
+                case Z80_UNSUPERVISED:
+                    z80_clk_set_independent(CLK_FAST_FREQUENCY);
+                    break;
+                default:
+                    assert(false);
+            }
+            break;
+
+        case Z80_ENCHANTED:
+            switch(new_mode){
+                case Z80_UNSUPERVISED:
+                    z80_set_ram_ce(true);
+                    break;
+                default:
+                    assert(false);
+            }
+            break;
+
+        default:
+            assert(false);
+    }
+
+    z80_mode_t prev_mode = z80_mode;
+    z80_mode = new_mode;
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
+    return prev_mode;
 }
 
 // Z80 CPU conducts a write to memory
-uint8_t z80_enchanted_cpu_read(uint16_t *address=NULL)
+uint8_t z80_enchanted_cpu_read(uint16_t *address)
 {
     uint8_t data;
 
@@ -274,7 +478,7 @@ uint16_t z80_enchanted_cpu_write(uint8_t data)
     return address;
 }
 
-uint16_t z80_enchanted_cpu_read16(uint16_t *address = NULL)
+uint16_t z80_enchanted_cpu_read16(uint16_t *address)
 {
     return (z80_enchanted_cpu_read(address) << 8) | z80_enchanted_cpu_read();
 }
@@ -287,7 +491,7 @@ uint16_t z80_enchanted_cpu_write16(uint16_t value)
     return r;
 }
 
-uint16_t z80_set_register_swap_registers(z80_register_t reg)
+static uint16_t z80_set_register_swap_registers(z80_register_t reg)
 {
     switch(reg){
         case Z80_REG_AF_ALT:
@@ -477,416 +681,4 @@ void z80_show_regs(void)
            pc, sp, af, af_,
            bc, bc_, de, de_,
            hl, hl_, ix, iy, i);
-}
-
-inline void z80_complete_read(uint8_t data)
-{
-    z80_bus_data_outputs();
-    z80_bus_set_data(data);
-    z80_set_busrq(true);
-    z80_set_release_wait(true);
-    while(!z80_busack_asserted())
-        if(!z80_clk_is_independent())
-            z80_clock_pulse();
-    z80_bus_data_inputs();
-    z80_set_release_wait(false);
-    dma_mode = DMA_IDLE;
-}
-
-inline void z80_complete_write(void)
-{
-    z80_set_busrq(true);
-    z80_set_release_wait(true);
-    while(!z80_busack_asserted())
-        if(!z80_clk_is_independent())
-            z80_clock_pulse();
-    z80_set_release_wait(false);
-    dma_mode = DMA_IDLE;
-}
-
-void handle_z80_bus(void)
-{
-    if(z80_wait_asserted()){
-        if(z80_iorq_asserted()){
-            if(z80_rd_asserted()){       // I/O read
-                z80_complete_read(iodevice_read(z80_read_bus_address()));
-            }else if(z80_wr_asserted()){ // I/O write
-                z80_complete_write();
-                iodevice_write(z80_read_bus_address_low8(), z80_read_bus_data());
-            }else if(z80_m1_asserted()){ // Interrupt acknowledge
-                z80_complete_read(z80_irq_vector());
-            }else
-                report("ersatz80: iorq weird?\r\n");
-        } else if(z80_mreq_asserted()){
-            if(z80_rd_asserted()){       // Memory read
-                z80_complete_read(memory_read(z80_read_bus_address()));
-            }else if(z80_wr_asserted()){ // Memory write
-                z80_complete_write();
-                memory_write(z80_read_bus_address_low8(), z80_read_bus_data());
-            }else
-                report("ersatz80: mreq weird?\r\n");
-        } else
-            report("ersatz80: wait weird?\r\n");
-        // z80_end_dma_mode(); // Hmmmmmm. Can we safely get rid of this?
-    }
-}
-
-void sram_setup(void)
-{
-    int i;
-    uint8_t old_mmu = z80_get_mmu(0); // stash current MMU state
-
-    // wipe RAM
-    report("ersatz80: wipe RAM: page ___");
-    for(i=0; i<256; i++){
-        report("\x08\x08\x08%03d", i);
-        z80_set_mmu(0, i);
-        // is it really there?
-        z80_memory_write(0, 0xaa);
-        z80_memory_write(1, 0x55);
-        z80_memory_write(2, 0x00);
-        z80_memory_write(3, i);
-        z80_memory_write(16383, i);
-        z80_memory_write(16382, 0x00);
-        z80_memory_write(16381, 0x55);
-        z80_memory_write(16380, 0xaa);
-        if(z80_memory_read(0) != 0xaa ||
-           z80_memory_read(1) != 0x55 ||
-           z80_memory_read(2) != 0x00 ||
-           z80_memory_read(3) != i ||
-           z80_memory_read(16380) != 0xaa ||
-           z80_memory_read(16381) != 0x55 ||
-           z80_memory_read(16382) != 0x00 ||
-           z80_memory_read(16383) != i)
-            break;
-        // yup, it seems to be there!
-        z80_wipe_page();
-    }
-    ram_pages = i;
-    report("\x08\x08\x08\x08\x08\x08\x08\x08%d pages (%dKB)\r\n", ram_pages, 16*ram_pages);
-
-    // return machine to previous state
-    z80_set_mmu(0, old_mmu);
-}
-
-void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t length, uint16_t start_address)
-{
-    z80_enter_dma_mode(true);
-
-    z80_memory_write_block(address, program, length);
-
-    if(start_address != 0 && address != 0){
-        z80_memory_write(0, 0xc3); // JP instruction
-        z80_memory_write(1, start_address & 0xFF);
-        z80_memory_write(2, start_address >> 8);
-    }
-}
-
-#define LOAD_BUFFER_SIZE 512
-int load_file_to_sram(char *filename, uint16_t address)
-{
-    SdBaseFile file;
-    uint8_t buffer[LOAD_BUFFER_SIZE];
-    int r, total;
-
-    // Open file
-    if(!file.open(&sdcard, filename, O_RDONLY))
-        return -1;
-
-    // enter DMA mode
-    z80_enter_dma_mode(true);
-
-    // Load the file block by block
-    total = 0;
-    while(true){
-        r = file.read(buffer, LOAD_BUFFER_SIZE);
-        if(r <= 0)
-            break;
-        z80_memory_write_block(address, buffer, r);
-        address += r;
-        total += r;
-    }
-
-    file.close();
-
-    return total;
-}
-
-enum bus_cycle_t { MEM_READ, MEM_WRITE, IO_READ, IO_WRITE, NO_CYCLE };
-
-typedef struct {
-    bus_cycle_t cycle;
-    uint16_t address;
-    uint8_t data;
-} bus_trace_t;
-
-#define MAX_BUS_STATES 8 // presumably this can be lower??
-bus_trace_t bus_trace[MAX_BUS_STATES];
-bool bus_trace_wait_cycle_end = false;
-int instruction_clock_cycles = 0;
-int bus_trace_count = 0;
-int bus_trace_di = 0;
-
-uint8_t read_bus_trace_bytes(void)
-{
-    return bus_trace[bus_trace_di++].data;
-}
-
-void z80_instruction_ended(void)
-{
-    char output[20];
-    uint16_t addr;
-    bus_cycle_t cycle;
-
-    if(z80_bus_trace >= TR_INST){
-        bus_trace_di = 0;
-        z80ctrl_disasm(read_bus_trace_bytes, output);
-        report("%-14s %2d  ", output, instruction_clock_cycles);
-
-        addr = ~bus_trace[0].address;
-        for(int i=0; i<bus_trace_count; i++){
-            if(bus_trace[i].address != addr || cycle != bus_trace[i].cycle){
-                addr = bus_trace[i].address;
-                cycle = bus_trace[i].cycle;
-                switch(bus_trace[i].cycle){
-                    case MEM_READ:  report("%04x: ", bus_trace[i].address); break;
-                    case MEM_WRITE: report("%04x<-", bus_trace[i].address); break;
-                    case IO_READ:   report("io%04x: ", bus_trace[i].address); break;
-                    case IO_WRITE:  report("io%04x<-", bus_trace[i].address); break;
-                    case NO_CYCLE:  break; // should never happen
-                }
-            }
-            report("%02x%s", bus_trace[i].data, i == (bus_trace_count-1) ? "" : (i == (bus_trace_di-1) ? " / " : " "));
-            addr++;
-        }
-        report("\r\n");
-    }
-
-    instruction_clock_cycles = 0;
-}
-
-void z80_bus_trace_state(void)
-{
-    bus_cycle_t type = NO_CYCLE;
-
-    instruction_clock_cycles++;
-    if(bus_trace_wait_cycle_end && !(z80_mreq_asserted() || z80_iorq_asserted()))
-        bus_trace_wait_cycle_end = false;
-    else if(!bus_trace_wait_cycle_end && !z80_wait_asserted()){
-        if(z80_mreq_asserted()){
-            if(z80_rd_asserted()){
-                type = MEM_READ;
-            }else if(z80_wr_asserted()){
-                type = MEM_WRITE;
-            }
-        }else if(z80_iorq_asserted()){
-            if(z80_rd_asserted()){
-                type = IO_READ;
-            }else if(z80_wr_asserted()){
-                type = IO_WRITE;
-            }
-        }
-        if(type != NO_CYCLE){
-            if(z80_m1_asserted() && !(bus_trace_count == 1 && (bus_trace[0].data == 0xcb || bus_trace[0].data == 0xdd || bus_trace[0].data == 0xed || bus_trace[0].data == 0xfd))){
-                z80_instruction_ended();
-                bus_trace_count = 0;
-            }
-            bus_trace_wait_cycle_end = true;
-            bus_trace[bus_trace_count].cycle = type;
-            bus_trace[bus_trace_count].data = z80_read_bus_data();
-            bus_trace[bus_trace_count].address = z80_read_bus_address();
-            if(bus_trace_count < (MAX_BUS_STATES-1))
-                bus_trace_count++;
-        }
-    }
-
-    if(z80_bus_trace >= TR_BUS)
-        report("\r\n|%04x|%02x|%s|%s|%s|",
-                z80_read_bus_address(), z80_read_bus_data(),
-                z80_mreq_asserted() ? "MREQ" : (z80_iorq_asserted() ? "IORQ" : "    "),
-                z80_rd_asserted() ? "RD" : (z80_wr_asserted() ? "WR" : "  "),
-                z80_m1_asserted() ? "M1" : "  ");
-}
-
-bool z80_supervised_mode(void)
-{
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            return false;
-        case Z80_SUPERVISED:
-        case Z80_ENCHANTED:
-            return true;
-    }
-    assert(false);
-}
-
-const char *z80_mode_name(z80_mode_t mode)
-{
-    switch(mode){
-        case Z80_SUPERVISED:   return "Z80_SUPERVISED";
-        case Z80_UNSUPERVISED: return "Z80_UNSUPERVISED";
-        case Z80_ENCHANTED:    return "Z80_ENCHANTED";
-        default: assert(false);
-    }
-}
-
-const char *dma_mode_name(dma_mode_t mode)
-{
-    switch(mode){
-        case DMA_SLAVE:         return "DMA_SLAVE";
-        case DMA_IDLE:          return "DMA_IDLE";
-        case DMA_READ:          return "DMA_READ";
-        case DMA_WRITE:         return "DMA_WRITE";
-        default: assert(false);
-    }
-}
-
-void z80_enter_dma_mode(bool writing)
-{
-    switch(dma_mode){
-        case DMA_WRITE:
-            if(!writing){
-                z80_bus_data_inputs();
-                dma_mode = DMA_READ;
-            }
-            break;
-        case DMA_READ:
-            if(writing){
-                z80_bus_data_outputs();
-                dma_mode = DMA_WRITE;
-            }
-            break;
-        case DMA_SLAVE:
-            switch(z80_mode){
-                case Z80_UNSUPERVISED:
-                    do{
-                        z80_set_busrq(true); // handle_z80_bus() may clear this
-                        handle_z80_bus();
-                    } while(!z80_busack_asserted());
-                    break;
-                case Z80_SUPERVISED:
-                    z80_set_ram_ce(false);
-                    z80_enchanted_cpu_write(0x18); // JR ...
-                    z80_enchanted_cpu_write(0xFE); // ... -2
-                    z80_set_busrq(true);
-                    z80_set_ram_ce(true);
-                    while(!z80_busack_asserted())
-                        z80_clock_pulse();
-                    break;
-                case Z80_ENCHANTED:
-                    assert(false); // this isn't supported (yet...)
-                    break;
-            }
-            // fall through ...
-        case DMA_IDLE:
-            if(writing){
-                z80_bus_master(true);
-                dma_mode = DMA_WRITE;
-            }else{
-                z80_bus_master(false);
-                dma_mode = DMA_READ;
-            }
-            break;
-    }
-#ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
-#endif
-}
-
-void z80_end_dma_mode(void)
-{
-    switch(dma_mode){
-        case DMA_SLAVE:
-            break;
-        case DMA_WRITE:
-        case DMA_READ:
-            z80_bus_slave();
-            // fall through ...
-        case DMA_IDLE:
-            z80_set_busrq(false);
-            dma_mode = DMA_SLAVE;
-            break;
-    }
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            break;
-        case Z80_SUPERVISED:
-            z80_bus_slave();
-            z80_set_busrq(false);
-            while(z80_busack_asserted())
-                z80_clock_pulse();
-            // TODO may need to clock forward here until M1 T1 is reached?
-            break;
-        case Z80_ENCHANTED:
-            assert(false); // this isn't supported (yet...)
-    }
-#ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
-#endif
-}
-
-// this tries to move us towards the desired mode, returning
-// the mode it has moved us into (unlike z80_set_mode() which
-// returns the previous mode)
-z80_mode_t z80_set_mode(z80_mode_t new_mode)
-{
-#ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
-#endif
-
-    if(z80_mode == new_mode)
-        return z80_mode;
-
-    z80_end_dma_mode();
-
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            switch(new_mode){
-                case Z80_SUPERVISED:
-                    z80_clk_set_supervised(0.0);
-                    // TODO: handle HALT etc
-                    // TODO: trace a few opcodes until we know we are in sync with the decoder
-                    while(!z80_m1_asserted() || z80_mreq_asserted()){ // stop at start of M1
-                        z80_clock_pulse();
-                        handle_z80_bus();
-                    }
-                    break;
-                default:
-                    assert(false);
-            }
-            break;
-
-        case Z80_SUPERVISED:
-            switch(new_mode){
-                case Z80_ENCHANTED:
-                    z80_set_ram_ce(false);
-                    break;
-                case Z80_UNSUPERVISED:
-                    z80_clk_set_independent(CLK_FAST_FREQUENCY);
-                    break;
-                default:
-                    assert(false);
-            }
-            break;
-
-        case Z80_ENCHANTED:
-            switch(new_mode){
-                case Z80_UNSUPERVISED:
-                    z80_set_ram_ce(true);
-                    break;
-                default:
-                    assert(false);
-            }
-            break;
-
-        default:
-            assert(false);
-    }
-
-    z80_mode_t prev_mode = z80_mode;
-    z80_mode = new_mode;
-#ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
-#endif
-    return prev_mode;
 }
