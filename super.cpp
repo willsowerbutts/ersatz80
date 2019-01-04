@@ -39,6 +39,7 @@ void super_in(int argc, char *argv[]);
 void super_out(int argc, char *argv[]);
 void super_run(int argc, char *argv[]);
 void super_exec(int argc, char *argv[]);
+void super_mode(int argc, char *argv[]);
 void super_mount(int argc, char *argv[]);
 void super_umount(int argc, char *argv[]);
 void super_uart0(int argc, char *argv[]);
@@ -78,6 +79,7 @@ const cmd_entry_t cmd_table[] = {
     { "out",        &super_out      },
     { "run",        &super_run      },
     { "exec",       &super_exec     },
+    { "mode",       &super_mode     },
 
     // list terminator:
     { NULL,         NULL            }
@@ -213,11 +215,6 @@ void super_step(int argc, char *argv[])
     if(not_in_supervised_mode())
         return;
 
-    if(!z80_clk_is_stopped()){
-        report("step: stopping clock\r\n");
-        z80_clk_set_supervised(0.0);
-    }
-
     while(instruction_clock_cycles == 0){
         z80_clock_pulse();
         handle_z80_bus();
@@ -236,8 +233,6 @@ void super_clk(int argc, char *argv[])
 
     if(argc == 0){
         setclk = false; // we just want the report that follows
-    }else if(argc == 1 && (!strcasecmp(argv[0], "stop") || !strcasecmp(argv[0], "stopped"))){
-        f = 0;
     }else if(argc == 1 && !strcasecmp(argv[0], "fast")){
         f = CLK_FAST_FREQUENCY;
     }else if(argc == 1){
@@ -267,21 +262,20 @@ void super_clk(int argc, char *argv[])
                     return;
             }
         }
-        z80_clk_set_independent(f);
     }else{
-        report("error: syntax: clk [stop|fast|<freq[kHz|MHz|GHz]>]\r\n");
+        report("error: syntax: clk [fast|<freq[kHz|MHz|GHz]>]\r\n");
         return;
     }
 
     if(setclk){
-        if(z80_supervised_mode())
-            z80_clk_set_supervised(f);
+        if(clk_is_supervised())
+            clk_set_supervised_frequency(f);
         else
-            z80_clk_set_independent(f);
+            clk_set_unsupervised_frequency(f);
     }
 
-    report("clock: %s ", z80_clk_get_name());
-    f = z80_clk_get_frequency();
+    report("clock: %s ", clk_is_supervised() ? "supervised" : "unsupervised");
+    f = clk_is_supervised() ? clk_get_supervised_frequency() : clk_get_unsupervised_frequency();
     if(f >= 950000.0)
         report("%.3fMHz", f / 1000000.0);
     else if(f > 950.0)
@@ -341,7 +335,7 @@ void super_trace(int argc, char *argv[])
     if(argc != 1)
         help = true;
     else{
-        if(!strcasecmp(argv[0], "silent"))
+        if(!strcasecmp(argv[0], "silent") || !strcasecmp(argv[0], "off"))
             z80_bus_trace = TR_SILENT;
         else if(!strcasecmp(argv[0], "inst"))
             z80_bus_trace = TR_INST;
@@ -621,4 +615,28 @@ void super_umount(int argc, char *argv[])
         return;
     }
     disk_unmount(disknum);
+}
+
+void super_mode(int argc, char *argv[])
+{
+    bool bad = false;
+    
+    if(argc > 1)
+        bad = true;
+
+    if(argc == 1){
+        if(strcasecmp(argv[0], "supervised") == 0 || strcasecmp(argv[0], "s") == 0)
+            z80_set_mode(Z80_SUPERVISED);
+        else if(strcasecmp(argv[0], "unsupervised") == 0 || strcasecmp(argv[0], "u") == 0)
+            z80_set_mode(Z80_UNSUPERVISED);
+        else
+            bad=true;
+    }
+
+    if(bad){
+        report("error: syntax: mode [supervised|unsupervised|s|u]\r\n");
+        return;
+    }
+
+    report("mode: %ssupervised\r\n", z80_supervised_mode() ? "":"un");
 }

@@ -133,16 +133,22 @@ void z80_clock_pulse_while_writing(void)
 
 void z80_do_reset(void)
 {
-    z80_clk_pause(false);
+    bool supervised;
+
+    supervised = clk_is_supervised();
+
+    if(!supervised)
+        clk_set_supervised(true);
+
     z80_set_reset(true);
     z80_set_release_wait(true);
-    for(int i=0; i<10; i++){ // Z80 requires at least 3 clocks to fully reset
-        z80_set_clk(false);
-        z80_set_clk(true);
-    }
+    for(int i=0; i<10; i++) // Z80 requires at least 3 clocks to fully reset
+        z80_clock_pulse();
     z80_set_release_wait(false);
     z80_set_reset(false);
-    z80_clk_resume();
+
+    if(!supervised)
+        clk_set_supervised(false);
 }
 
 void z80_memory_write(uint16_t address, uint8_t data)
@@ -214,7 +220,7 @@ inline void z80_complete_read(uint8_t data)
     z80_set_busrq(true);
     z80_set_release_wait(true);
     while(!z80_busack_asserted())
-        if(!z80_clk_is_independent())
+        if(z80_supervised_mode())
             z80_clock_pulse();
     z80_bus_data_inputs();
     z80_set_release_wait(false);
@@ -226,7 +232,7 @@ inline void z80_complete_write(void)
     z80_set_busrq(true);
     z80_set_release_wait(true);
     while(!z80_busack_asserted())
-        if(!z80_clk_is_independent())
+        if(z80_supervised_mode())
             z80_clock_pulse();
     z80_set_release_wait(false);
     dma_mode = DMA_IDLE;
@@ -379,13 +385,8 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
         case Z80_UNSUPERVISED:
             switch(new_mode){
                 case Z80_SUPERVISED:
-                    z80_clk_set_supervised(0.0);
-                    // TODO: handle HALT etc
-                    // TODO: trace a few opcodes until we know we are in sync with the decoder
-                    while(!z80_m1_asserted() || z80_mreq_asserted()){ // stop at start of M1
-                        z80_clock_pulse();
-                        handle_z80_bus();
-                    }
+                    clk_set_supervised(true);
+                    // TODO: trace a few opcodes until we know we are in sync with the Z80's decoder
                     break;
                 default:
                     assert(false);
@@ -398,7 +399,7 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
                     z80_set_ram_ce(false);
                     break;
                 case Z80_UNSUPERVISED:
-                    z80_clk_set_independent(CLK_FAST_FREQUENCY);
+                    clk_set_supervised(false);
                     break;
                 default:
                     assert(false);
@@ -429,12 +430,5 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
 
 bool z80_supervised_mode(void)
 {
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            return false;
-        case Z80_SUPERVISED:
-        case Z80_ENCHANTED:
-            return true;
-    }
-    assert(false);
+    return (z80_mode != Z80_UNSUPERVISED);
 }

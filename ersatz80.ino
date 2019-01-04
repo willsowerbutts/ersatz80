@@ -44,7 +44,7 @@ void handle_usb_acm_input(void)
 }
 
 void __assert_func(const char *__file, int __lineno, const char *__func, const char *__sexp) {
-    // put the Z80 data and address bus into a safe mode where we're not driving any signals
+    // put the Z80 data and address bus into a mode where we're not driving any signals
     z80_bus_slave();
 
     // transmit diagnostic informations through serial link. 
@@ -61,10 +61,10 @@ void uart_setup(int baud)
     // when uart0_on_console=false.
     // wiring instructions:
     //  connect GND on ersatz80 to GND on peer
-    //  input   RX - pin 47 - connect to TX output pin on peer
-    //  output  TX - pin 48 - connect to RX input pin on peer
-    //  input  CTS - pin 56 - connect to RTS output pin on peer
-    //  output RTS - pin 57 - connect to CTS input pin on peer
+    //  RX input   - pin 47 - connect to TX output pin on peer
+    //  TX output  - pin 48 - connect to RX input pin on peer
+    //  CTS input  - pin 56 - connect to RTS output pin on peer
+    //  RTS output - pin 57 - connect to CTS input pin on peer
     Serial6.begin(baud, SERIAL_8N1);
     Serial6.attachCts(56);
     Serial6.attachRts(57);
@@ -86,7 +86,7 @@ void setup()
         }
     }
 
-    z80_clk_init();
+    clk_setup();
     z80_setup();
     mmu_setup();
     uart_setup(115200);   // setup Serial6 (optional UART on expansion port)
@@ -112,7 +112,6 @@ void setup()
     report("ersatz80: Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
 
     // off we go!
-    z80_end_dma_mode();
     z80_set_mode(Z80_UNSUPERVISED);
 }
 
@@ -125,11 +124,11 @@ void loop()
         now = millis();
         handle_timer(now);                      // poke the timer
         handle_z80_interrupts();                // handle Z80 interrupt line
-        if(z80_clk_is_supervised())             // clock the CPU, if we're in supervised clock mode
+        if(z80_supervised_mode())               // clock the CPU, if we're in supervised clock mode
             z80_clock_pulse();
+        z80_end_dma_mode();
         handle_z80_bus();                       // handle peripheral I/O and memory requests from the Z80
         handle_usb_acm_input();                 // handle input over USB ACM serial
-        z80_end_dma_mode();
         if(now >= disk_sync_due){               // periodically flush written data to the SD card
             disk_sync();                        // sync all the disks
             disk_sync_due += DISK_SYNC_INTERVAL;
