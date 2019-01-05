@@ -61,54 +61,80 @@ dma_mode_t dma_mode = DMA_SLAVE;
 int ram_pages;     // count of 16KB SRAM pages
 
 #ifdef MODE_SWITCH_DEBUGGING
-void z80_check_mode_correct(void)
+bool z80_check_mode_correct(void)
 {
     // this just checks that the interface between the Z80 and the Teensy
     // appears to be correctly configured for the mode we think we're in.
+    bool clk_sup, z80_reset, z80_ram_ce;
+    bool z80_busrq, z80_busack, z80_addrbus, z80_databus;
+
     switch(z80_mode){
         case Z80_UNSUPERVISED:
-            assert(!clk_is_supervised());
-            assert(!z80_get_reset());
-            assert(z80_get_ram_ce());
+            clk_sup = false;
+            z80_reset = false;
+            z80_ram_ce = true;
             break;
         case Z80_SUPERVISED:
-            assert(clk_is_supervised());
-            assert(!z80_get_reset());
-            assert(z80_get_ram_ce());
+            clk_sup = true;
+            z80_reset = false;
+            z80_ram_ce = true;
             break;
         case Z80_ENCHANTED:
-            assert(clk_is_supervised());
-            assert(!z80_get_reset());
-            assert(!z80_get_ram_ce());
+            clk_sup = true;
+            z80_reset = false;
+            z80_ram_ce = false;
             break;
     }
 
     switch(dma_mode){
         case DMA_SLAVE:
-            assert(*portOutputRegister(Z80_BUSRQ));
-            assert(!z80_busack_asserted());
-            assert(!*portModeRegister(Z80_A0));
-            assert(!*portModeRegister(Z80_D0));
+            z80_busrq = true;
+            z80_busack = false;
+            z80_addrbus = false;
+            z80_databus = false;
             break;
         case DMA_IDLE:
-            assert(!*portOutputRegister(Z80_BUSRQ));
-            assert(z80_busack_asserted());
-            assert(!*portModeRegister(Z80_A0));
-            assert(!*portModeRegister(Z80_D0));
+            z80_busrq = false;
+            z80_busack = true;
+            z80_addrbus = false;
+            z80_databus = false;
             break;
         case DMA_READ:
-            assert(!*portOutputRegister(Z80_BUSRQ));
-            assert(z80_busack_asserted());
-            assert(*portModeRegister(Z80_A0));
-            assert(!*portModeRegister(Z80_D0));
+            z80_busrq = false;
+            z80_busack = true;
+            z80_addrbus = true;
+            z80_databus = false;
             break;
         case DMA_WRITE:
-            assert(!*portOutputRegister(Z80_BUSRQ));
-            assert(z80_busack_asserted());
-            assert(*portModeRegister(Z80_A0));
-            assert(*portModeRegister(Z80_D0));
+            z80_busrq = false;
+            z80_busack = true;
+            z80_addrbus = true;
+            z80_databus = true;
             break;
     }
+
+    clk_sup = (clk_sup == clk_is_supervised());
+    z80_reset = (z80_reset == z80_get_reset());
+    z80_ram_ce = (z80_ram_ce == z80_get_ram_ce());
+    z80_busrq = (z80_busrq == *portOutputRegister(Z80_BUSRQ));
+    z80_busack = (z80_busack == z80_busack_asserted());
+    z80_addrbus = (z80_addrbus == *portModeRegister(Z80_A0));
+    z80_databus = (z80_databus == *portModeRegister(Z80_D0));
+
+    if(clk_sup && z80_reset && z80_ram_ce && z80_busrq && z80_busack && z80_addrbus && z80_databus)
+        return true;
+
+    report("z80_check_mode_correct(z80_mode=%s, dma_mode=%s) FAILED:", z80_mode_name(z80_mode), dma_mode_name(dma_mode));
+    if(!clk_sup)     report("clk_sup ");
+    if(!z80_reset)   report("z80_reset ");
+    if(!z80_ram_ce)  report("z80_ram_ce ");
+    if(!z80_busrq)   report("z80_busrq ");
+    if(!z80_busack)  report("z80_busack ");
+    if(!z80_addrbus) report("z80_addrbus ");
+    if(!z80_databus) report("z80_databus ");
+    report("\r\n");
+
+    return false;
 }
 #endif
 
@@ -135,10 +161,6 @@ void z80_do_reset(void)
 {
     bool supervised = clk_is_supervised();
 
-#ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
-#endif
-
     if(!supervised)
         clk_set_supervised(true);
 
@@ -155,7 +177,7 @@ void z80_do_reset(void)
         clk_set_supervised(false);
 
 #ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
+    assert(z80_check_mode_correct());
 #endif
 }
 
@@ -297,7 +319,7 @@ const char *dma_mode_name(dma_mode_t mode)
 void z80_enter_dma_mode(bool writing)
 {
 #ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
+    assert(z80_check_mode_correct());
 #endif
     switch(dma_mode){
         case DMA_WRITE:
@@ -350,7 +372,7 @@ void z80_enter_dma_mode(bool writing)
             break;
     }
 #ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
+    assert(z80_check_mode_correct());
 #endif
 }
 
@@ -374,14 +396,14 @@ void z80_end_dma_mode(void)
         // TODO may need to clock forward here until M1 T1 is reached?
     }
 #ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
+    assert(z80_check_mode_correct());
 #endif
 }
 
 z80_mode_t z80_set_mode(z80_mode_t new_mode)
 {
 #ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
+    assert(z80_check_mode_correct());
 #endif
 
     if(z80_mode == new_mode)
@@ -394,18 +416,17 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
         z80_bus_trace = TR_SILENT;
 
         clk_set_supervised(true);
+        z80_mode = Z80_SUPERVISED;
 
         // TODO trace a few instructions to get into sync with the Z80 opcode decoder
         for(int i=0; i<10; i++){ // TODO be a bit smarter here
             while(instruction_clock_cycles == 0){
-                report(">");
                 z80_clock_pulse();
                 handle_z80_bus();
                 z80_end_dma_mode();
             }
 
             while(instruction_clock_cycles != 0){
-                report("<");
                 z80_clock_pulse();
                 handle_z80_bus();
                 z80_end_dma_mode();
@@ -415,7 +436,6 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
         z80_bus_trace = prev_trace;
     }
 
-    // Z80 clock is always supervised at this point
     z80_end_dma_mode();
 
     z80_set_ram_ce(new_mode != Z80_ENCHANTED);
@@ -425,7 +445,7 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
 
     z80_mode = new_mode;
 #ifdef MODE_SWITCH_DEBUGGING
-    z80_check_mode_correct();
+    assert(z80_check_mode_correct());
 #endif
     return prev_mode;
 }
