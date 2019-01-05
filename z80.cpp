@@ -436,6 +436,16 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
         z80_bus_trace = prev_trace;
     }
 
+    if(new_mode == Z80_ENCHANTED){ // also Z80_SUPERVISED?
+        // sync up with the start of an instruction
+        while(instruction_clock_cycles != 0){
+            z80_clock_pulse();
+            handle_z80_bus();
+            z80_end_dma_mode();
+        }
+        // should also stash and disable tracing
+    }
+
     z80_end_dma_mode();
 
     z80_set_ram_ce(new_mode != Z80_ENCHANTED);
