@@ -73,6 +73,7 @@ void uart_setup(int baud)
 void setup() 
 {
     Serial.begin(115200); // console on USB ACM device (baud rate is irrelevant)
+    while(!Serial.dtr()); // wait for terminal software to connect to the USB ACM device
 
     if(!check_pcb_revision()){
         while(true){
@@ -105,14 +106,10 @@ void setup()
     // commands.
     report("ersatz80: load ROM\r\n");
     load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
-    // TODO is another reset necessary here?
-    report("ersatz80: reset Z80\r\n");
-    z80_do_reset();
-
     report("ersatz80: Supervisor keycode is Ctrl+%c.\r\n", 'A' - 1 + SUPERVISOR_ESCAPE_KEYCODE);
-
-    // off we go!
+    report("ersatz80: reset Z80\r\n");
     z80_set_mode(Z80_UNSUPERVISED);
+    z80_do_reset(); // TODO is another reset necessary here?
 }
 
 #define DISK_SYNC_INTERVAL      3000 // milliseconds
@@ -124,7 +121,7 @@ void loop()
         now = millis();
         handle_timer(now);                      // poke the timer
         handle_z80_interrupts();                // handle Z80 interrupt line
-        if(z80_supervised_mode())               // clock the CPU, if we're in supervised clock mode
+        if(clk_is_supervised())                 // clock the CPU, if we're in supervised clock mode
             z80_clock_pulse();
         z80_end_dma_mode();
         handle_z80_bus();                       // handle peripheral I/O and memory requests from the Z80

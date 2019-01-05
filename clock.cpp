@@ -49,13 +49,13 @@ void z80_set_clk(bool level)
 {
     if(level){
         *portOutputRegister(CLK_STROBE) = 0; // Z80 CLK line goes high
-        if(z80_supervised_mode()){
+        if(clk_is_supervised()){
             clk_ftm_wait_overflow();
             z80_bus_trace_state();
         }
     }else{
         *portOutputRegister(CLK_STROBE) = 1; // Z80 CLK line goes low
-        if(z80_supervised_mode()){
+        if(clk_is_supervised()){
             clk_ftm_wait_event();
         }
     }
@@ -155,14 +155,14 @@ static void clk_ftm_stop(void)
 
 void clk_setup(void)
 {
-    pinMode(CLK_STROBE, OUTPUT);
     pinMode(CLK_FAST_ENABLE, OUTPUT);
-    *portOutputRegister(CLK_STROBE) = 0;
+    pinMode(CLK_STROBE, OUTPUT);
     *portOutputRegister(CLK_FAST_ENABLE) = 0;
+    *portOutputRegister(CLK_STROBE) = 0;
     z80_set_clk(true);
     clk_freq_supervised = CLK_FTM_MAX_FREQUENCY;
     clk_freq_unsupervised = CLK_FAST_FREQUENCY;
-    clk_mode = CLK_SUPERVISED;
+    clk_mode = CLK_UNSUPERVISED_FAST;
     clk_set_supervised(true);
 }
 
@@ -173,6 +173,9 @@ bool clk_is_supervised(void)
 
 void clk_set_supervised(bool supervised)
 {
+    if(clk_is_supervised() == supervised)
+        return;
+
     switch(clk_mode){
         case CLK_UNSUPERVISED_FAST:
             clk_fast_stop();

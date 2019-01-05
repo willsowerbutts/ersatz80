@@ -87,7 +87,7 @@ const cmd_entry_t cmd_table[] = {
 
 static bool not_in_supervised_mode(void)
 {
-    if(z80_supervised_mode())
+    if(clk_is_supervised())
         return false;
     report("ersatz80: this command can only be used in supervisor mode\r\n");
     return true;
@@ -567,6 +567,11 @@ void super_exec(int argc, char *argv[])
     // note that we shortly will overwrite the strings that argv[] point to, so can't use argv[0] again
     
     while(file.fgets(supervisor_cmd_buffer, SBUFLEN) > 0){
+        int l = strlen(supervisor_cmd_buffer);
+        while(l > 0 && isspace(supervisor_cmd_buffer[l-1])){
+            supervisor_cmd_buffer[--l] = 0;
+        }
+        report("exec: \"%s\"\r\n", supervisor_cmd_buffer);
         execute_supervisor_command(supervisor_cmd_buffer);
     }
 
@@ -638,5 +643,5 @@ void super_mode(int argc, char *argv[])
         return;
     }
 
-    report("mode: %ssupervised\r\n", z80_supervised_mode() ? "":"un");
+    report("mode: %ssupervised\r\n", clk_is_supervised() ? "":"un");
 }

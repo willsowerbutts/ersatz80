@@ -10,7 +10,7 @@
 #include "disk.h"
 #include "disasm.h"
 
-#undef MODE_SWITCH_DEBUGGING   // debug switching between Z80 interface modes
+#undef MODE_SWITCH_DEBUGGING   // define to check switching between Z80 interface modes
 /*
  * === Z80 modes ===
  * +----------------- +-------------+---------+------+
@@ -67,17 +67,17 @@ void z80_check_mode_correct(void)
     // appears to be correctly configured for the mode we think we're in.
     switch(z80_mode){
         case Z80_UNSUPERVISED:
-            assert(!z80_clk_is_supervised());
+            assert(!clk_is_supervised());
             assert(!z80_get_reset());
             assert(z80_get_ram_ce());
             break;
         case Z80_SUPERVISED:
-            assert(z80_clk_is_supervised());
+            assert(clk_is_supervised());
             assert(!z80_get_reset());
             assert(z80_get_ram_ce());
             break;
         case Z80_ENCHANTED:
-            assert(z80_clk_is_supervised());
+            assert(clk_is_supervised());
             assert(!z80_get_reset());
             assert(!z80_get_ram_ce());
             break;
@@ -133,12 +133,16 @@ void z80_clock_pulse_while_writing(void)
 
 void z80_do_reset(void)
 {
-    bool supervised;
+    bool supervised = clk_is_supervised();
 
-    supervised = clk_is_supervised();
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
 
     if(!supervised)
         clk_set_supervised(true);
+
+    // z80_end_dma_mode();
 
     z80_set_reset(true);
     z80_set_release_wait(true);
@@ -149,6 +153,10 @@ void z80_do_reset(void)
 
     if(!supervised)
         clk_set_supervised(false);
+
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
 }
 
 void z80_memory_write(uint16_t address, uint8_t data)
@@ -220,7 +228,7 @@ inline void z80_complete_read(uint8_t data)
     z80_set_busrq(true);
     z80_set_release_wait(true);
     while(!z80_busack_asserted())
-        if(z80_supervised_mode())
+        if(clk_is_supervised())
             z80_clock_pulse();
     z80_bus_data_inputs();
     z80_set_release_wait(false);
@@ -232,7 +240,7 @@ inline void z80_complete_write(void)
     z80_set_busrq(true);
     z80_set_release_wait(true);
     while(!z80_busack_asserted())
-        if(z80_supervised_mode())
+        if(clk_is_supervised())
             z80_clock_pulse();
     z80_set_release_wait(false);
     dma_mode = DMA_IDLE;
@@ -288,6 +296,9 @@ const char *dma_mode_name(dma_mode_t mode)
 
 void z80_enter_dma_mode(bool writing)
 {
+#ifdef MODE_SWITCH_DEBUGGING
+    z80_check_mode_correct();
+#endif
     switch(dma_mode){
         case DMA_WRITE:
             if(!writing){
@@ -310,13 +321,18 @@ void z80_enter_dma_mode(bool writing)
                     } while(!z80_busack_asserted());
                     break;
                 case Z80_SUPERVISED:
+                    // TODO this path is NOT WELL TESTED
+                    // TODO temporarily disable tracing here?
+                    // TODO can we do this with z80_set_mode(Z80_ENCHANTED)...?
                     z80_set_ram_ce(false);
                     z80_enchanted_cpu_write(0x18); // JR ...
                     z80_enchanted_cpu_write(0xFE); // ... -2
                     z80_set_busrq(true);
                     z80_set_ram_ce(true);
-                    while(!z80_busack_asserted())
+                    while(!z80_busack_asserted()){
                         z80_clock_pulse();
+                        handle_z80_bus(); // TODO do we need this?
+                    }
                     break;
                 case Z80_ENCHANTED:
                     assert(false); // this isn't supported (yet...)
@@ -352,18 +368,10 @@ void z80_end_dma_mode(void)
             dma_mode = DMA_SLAVE;
             break;
     }
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            break;
-        case Z80_SUPERVISED:
-            z80_bus_slave();
-            z80_set_busrq(false);
-            while(z80_busack_asserted())
-                z80_clock_pulse();
-            // TODO may need to clock forward here until M1 T1 is reached?
-            break;
-        case Z80_ENCHANTED:
-            assert(false); // this isn't supported (yet...)
+    if(clk_is_supervised()){
+        while(z80_busack_asserted())
+            z80_clock_pulse();
+        // TODO may need to clock forward here until M1 T1 is reached?
     }
 #ifdef MODE_SWITCH_DEBUGGING
     z80_check_mode_correct();
@@ -379,56 +387,45 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
     if(z80_mode == new_mode)
         return z80_mode;
 
-    z80_end_dma_mode();
+    z80_mode_t prev_mode = z80_mode;
 
-    switch(z80_mode){
-        case Z80_UNSUPERVISED:
-            switch(new_mode){
-                case Z80_SUPERVISED:
-                    clk_set_supervised(true);
-                    // TODO: trace a few opcodes until we know we are in sync with the Z80's decoder
-                    break;
-                default:
-                    assert(false);
+    if(z80_mode == Z80_UNSUPERVISED){
+        z80_bus_trace_t prev_trace = z80_bus_trace;
+        z80_bus_trace = TR_SILENT;
+
+        clk_set_supervised(true);
+
+        // TODO trace a few instructions to get into sync with the Z80 opcode decoder
+        for(int i=0; i<10; i++){ // TODO be a bit smarter here
+            while(instruction_clock_cycles == 0){
+                report(">");
+                z80_clock_pulse();
+                handle_z80_bus();
+                z80_end_dma_mode();
             }
-            break;
 
-        case Z80_SUPERVISED:
-            switch(new_mode){
-                case Z80_ENCHANTED:
-                    z80_set_ram_ce(false);
-                    break;
-                case Z80_UNSUPERVISED:
-                    clk_set_supervised(false);
-                    break;
-                default:
-                    assert(false);
+            while(instruction_clock_cycles != 0){
+                report("<");
+                z80_clock_pulse();
+                handle_z80_bus();
+                z80_end_dma_mode();
             }
-            break;
+        }
 
-        case Z80_ENCHANTED:
-            switch(new_mode){
-                case Z80_UNSUPERVISED:
-                    z80_set_ram_ce(true);
-                    break;
-                default:
-                    assert(false);
-            }
-            break;
-
-        default:
-            assert(false);
+        z80_bus_trace = prev_trace;
     }
 
-    z80_mode_t prev_mode = z80_mode;
+    // Z80 clock is always supervised at this point
+    z80_end_dma_mode();
+
+    z80_set_ram_ce(new_mode != Z80_ENCHANTED);
+
+    if(new_mode == Z80_UNSUPERVISED)
+        clk_set_supervised(false);
+
     z80_mode = new_mode;
 #ifdef MODE_SWITCH_DEBUGGING
     z80_check_mode_correct();
 #endif
     return prev_mode;
-}
-
-bool z80_supervised_mode(void)
-{
-    return (z80_mode != Z80_UNSUPERVISED);
 }
