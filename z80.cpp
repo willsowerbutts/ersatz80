@@ -125,13 +125,13 @@ bool z80_check_mode_correct(void)
         return true;
 
     report("z80_check_mode_correct(z80_mode=%s, dma_mode=%s) FAILED:", z80_mode_name(z80_mode), dma_mode_name(dma_mode));
-    if(!clk_sup)     report("clk_sup ");
-    if(!z80_reset)   report("z80_reset ");
-    if(!z80_ram_ce)  report("z80_ram_ce ");
-    if(!z80_busrq)   report("z80_busrq ");
-    if(!z80_busack)  report("z80_busack ");
-    if(!z80_addrbus) report("z80_addrbus ");
-    if(!z80_databus) report("z80_databus ");
+    if(!clk_sup)     report(" clk_sup");
+    if(!z80_reset)   report(" z80_reset");
+    if(!z80_ram_ce)  report(" z80_ram_ce");
+    if(!z80_busrq)   report(" z80_busrq");
+    if(!z80_busack)  report(" z80_busack");
+    if(!z80_addrbus) report(" z80_addrbus");
+    if(!z80_databus) report(" z80_databus");
     report("\r\n");
 
     return false;
@@ -164,7 +164,7 @@ void z80_do_reset(void)
     if(!supervised)
         clk_set_supervised(true);
 
-    // z80_end_dma_mode();
+    z80_end_dma_mode();
 
     z80_set_reset(true);
     z80_set_release_wait(true);
@@ -291,7 +291,22 @@ void handle_z80_bus(void)
                 report("ersatz80: mreq weird?\r\n");
         } else
             report("ersatz80: wait weird?\r\n");
-        // z80_end_dma_mode(); // Hmmmmmm. Can we safely get rid of this?
+        z80_end_dma_mode();
+    }
+}
+
+void z80_step_one_instruction(void)
+{
+    assert(z80_mode != Z80_UNSUPERVISED);
+
+    while(instruction_clock_cycles == 0){
+        z80_clock_pulse();
+        handle_z80_bus();
+    }
+
+    while(instruction_clock_cycles != 0){
+        z80_clock_pulse();
+        handle_z80_bus();
     }
 }
 
@@ -343,14 +358,14 @@ void z80_enter_dma_mode(bool writing)
                     } while(!z80_busack_asserted());
                     break;
                 case Z80_SUPERVISED:
-                    // TODO this path is NOT WELL TESTED
                     // TODO temporarily disable tracing here?
-                    // TODO can we do this with z80_set_mode(Z80_ENCHANTED)...?
-                    z80_set_ram_ce(false);
-                    z80_enchanted_cpu_write(0x18); // JR ...
-                    z80_enchanted_cpu_write(0xFE); // ... -2
+                    //
+                    // we don't really want to advance an M-state, so we can consider:
+                    //   z80_set_ram_ce(false);
+                    //   z80_enchanted_cpu_write(0x18); // JR ...
+                    //   z80_enchanted_cpu_write(0xFE); // ... -2
+                    //   z80_set_ram_ce(true);
                     z80_set_busrq(true);
-                    z80_set_ram_ce(true);
                     while(!z80_busack_asserted()){
                         z80_clock_pulse();
                         handle_z80_bus(); // TODO do we need this?
@@ -418,37 +433,17 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
         clk_set_supervised(true);
         z80_mode = Z80_SUPERVISED;
 
-        // TODO trace a few instructions to get into sync with the Z80 opcode decoder
-        for(int i=0; i<10; i++){ // TODO be a bit smarter here
-            while(instruction_clock_cycles == 0){
-                z80_clock_pulse();
-                handle_z80_bus();
-                z80_end_dma_mode();
-            }
-
-            while(instruction_clock_cycles != 0){
-                z80_clock_pulse();
-                handle_z80_bus();
-                z80_end_dma_mode();
-            }
-        }
+        // trace a few instructions to get into sync with the Z80 opcode decoder
+        for(int i=0; i<5; i++) // TODO be a bit smarter about how many instructions!!
+            z80_step_one_instruction();
 
         z80_bus_trace = prev_trace;
-    }
-
-    if(new_mode == Z80_ENCHANTED){ // also Z80_SUPERVISED?
-        // sync up with the start of an instruction
-        while(instruction_clock_cycles != 0){
-            z80_clock_pulse();
-            handle_z80_bus();
-            z80_end_dma_mode();
-        }
-        // should also stash and disable tracing
     }
 
     z80_end_dma_mode();
 
     z80_set_ram_ce(new_mode != Z80_ENCHANTED);
+    // should also stash and disable tracing in enchanted mode?
 
     if(new_mode == Z80_UNSUPERVISED)
         clk_set_supervised(false);

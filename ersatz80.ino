@@ -121,10 +121,11 @@ void loop()
         now = millis();
         handle_timer(now);                      // poke the timer
         handle_z80_interrupts();                // handle Z80 interrupt line
-        if(clk_is_supervised())                 // clock the CPU, if we're in supervised clock mode
-            z80_clock_pulse();                  // ... we should probably do a complete instruction here?
-        z80_end_dma_mode();
-        handle_z80_bus();                       // handle peripheral I/O and memory requests from the Z80
+        if(clk_is_supervised()){                // clock the CPU, if we're in supervised clock mode
+            z80_step_one_instruction();
+        }else{
+            handle_z80_bus();
+        }
         handle_usb_acm_input();                 // handle input over USB ACM serial
         if(now >= disk_sync_due){               // periodically flush written data to the SD card
             disk_sync();                        // sync all the disks

@@ -35,6 +35,7 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
 int load_file_to_sram(char *filename, uint16_t address);
 void z80_set_busrq(bool request_dma);
 void z80_set_release_wait(bool release);
+void z80_step_one_instruction(void);
 
 void z80_show_regs(void);
 void z80_bus_trace_state(void);
