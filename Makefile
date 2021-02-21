@@ -1,6 +1,6 @@
 BOARD_TAG    = teensy35
 F_CPU        = 120000000
-ARDUINO_DIR  = $(HOME)/arduino-1.8.7
+ARDUINO_DIR  = $(HOME)/arduino-1.8.13
 ARDUINO_LIB_PATH = $(ARDUINO_DIR)/hardware/teensy/avr/libraries
 ARDUINO_LIBS = SPI SdFat
 OPTIMIZATION_LEVEL = 2

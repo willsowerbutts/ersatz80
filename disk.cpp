@@ -4,7 +4,14 @@
 #include "debug.h"
 
 #define MAX_SECTOR_SIZE 1024
+
+#if SD_FAT_VERSION >= 20000
+// SdFat v2
+SdFat sdcard;
+#else
+// SdFat v1
 SdFatSdioEX sdcard;
+#endif
 
 // Z80 accessible register map:
 //   base + 0 -- unimplemented; reserved for future expansion
@@ -305,8 +312,6 @@ void disk_setup(void) {
         snprintf(disk[d].filename, MAX_FILENAME_LENGTH, "test%d.dsk", d);
     }
 
-    SdioCard *card;
-
     report("ersatz80: initializing SD card: ");
 
     if (!sdcard.begin()) {
@@ -314,8 +319,7 @@ void disk_setup(void) {
         return;
     }
 
-    card = sdcard.card();
-    switch(card->type()){
+    switch(sdcard.card()->type()){
         case 0:
             report("SDv1");
             break;
@@ -326,10 +330,18 @@ void disk_setup(void) {
             report("SDHC");
             break;
         default:
-            report("(unknown card type %d)", card->type());
+            report("(unknown card type %d)", sdcard.card()->type());
     }
 
-    report(" %d blocks (%.1fGB) FAT%d\r\n", card->cardSize(), (float)card->cardSize() / 2097152.0, sdcard.fatType());
+    report(" %d sectors (%.1fGB) ", sdcard.card()->sectorCount(), (float)sdcard.card()->sectorCount() / 2097152.0);
+    switch(sdcard.fatType()){
+        case FAT_TYPE_EXFAT:
+            report("exFAT");
+            break;
+        default:
+            report("FAT%d", sdcard.fatType());
+    }
+    report("\r\n");
 }
 
 #define PROGRESS_BAR_LENGTH 40
@@ -366,7 +378,7 @@ bool disk_format(const char *filename, uint32_t bytes)
     SdBaseFile file;
     unsigned long timer;
     uint32_t done;
-    int xfer;
+    size_t xfer;
     char buffer[DISKOP_BUFFER_SIZE];
     bool result = true;
 

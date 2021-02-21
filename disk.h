@@ -29,7 +29,13 @@ void    disk_unmount(int nr);
 void    disk_mount(int nr, bool readwrite=true);
 
 // WRS: can also try using SdFatSdio here -- it may be slower? have not benchmarked.
+#if SD_FAT_VERSION >= 20000
+// SdFat v2
+extern SdFat sdcard;
+#else
+// SdFat v1
 extern SdFatSdioEX sdcard;
+#endif
 
 typedef struct {
     SdBaseFile file;
