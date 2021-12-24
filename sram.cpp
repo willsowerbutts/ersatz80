@@ -81,6 +81,8 @@ void load_program_to_sram(const uint8_t *program, uint16_t address, uint16_t len
         z80_memory_write(1, start_address & 0xFF);
         z80_memory_write(2, start_address >> 8);
     }
+
+    z80_end_dma_mode();
 }
 
 #define LOAD_BUFFER_SIZE 512
@@ -109,6 +111,7 @@ int load_file_to_sram(char *filename, uint16_t address)
     }
 
     file.close();
+    z80_end_dma_mode();
 
     return total;
 }
