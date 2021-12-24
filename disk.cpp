@@ -5,13 +5,7 @@
 
 #define MAX_SECTOR_SIZE 1024
 
-#if SD_FAT_VERSION >= 20000
-// SdFat v2
 SdFat sdcard;
-#else
-// SdFat v1
-SdFatSdioEX sdcard;
-#endif
 
 // Z80 accessible register map:
 //   base + 0 -- unimplemented; reserved for future expansion
@@ -314,7 +308,7 @@ void disk_setup(void) {
 
     report("ersatz80: initializing SD card: ");
 
-    if (!sdcard.begin()) {
+    if (!sdcard.begin(SdioConfig(FIFO_SDIO))){
         report("failed!\r\n");
         return;
     }
