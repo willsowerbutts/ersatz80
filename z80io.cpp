@@ -184,12 +184,13 @@ void iodevice_write(uint16_t address, uint8_t value) // call ONLY when in DMA mo
 
 uint8_t memory_read(uint16_t address)
 {
-    return basic_rom[address & ROM_ADDR_MASK];
+    // return simulated_ram[address & MEM_ADDR_MASK];
+    return 0; 
 }
 
 void memory_write(uint16_t address, uint8_t value)
 {
-    // not implemented -- we only present ROM
+    // simulated_ram[address & MEM_ADDR_MASK] = value;
 }
 
 #define UART_RX_FIFO_BUFFER_SIZE 128

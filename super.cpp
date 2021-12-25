@@ -290,15 +290,8 @@ void super_clk(int argc, char *argv[])
 
 void super_loadrom(int argc, char *argv[])
 {
-    if(argc == 0){
-        report("error: syntax: loadrom [basic|monitor]\r\n");
-    }else if(argc == 1 && !strcasecmp(argv[0], "monitor")){
-        load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
-        report("loadrom: monitor loaded at %04x\r\n", MONITOR_ROM_START);
-    }else if(argc == 1 && !strcasecmp(argv[0], "basic")){
-        load_program_to_sram(basic_rom, 0, 16*1024, 0);
-        report("loadrom: basic loaded. entry at 0150.\r\n");
-    }
+    load_program_to_sram(monitor_rom, MONITOR_ROM_START, MONITOR_ROM_SIZE, MONITOR_ROM_START);
+    report("loadrom: monitor loaded at %04x\r\n", MONITOR_ROM_START);
 }
 
 void super_reset(int argc, char *argv[])
