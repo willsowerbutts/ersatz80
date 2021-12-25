@@ -28,7 +28,7 @@ The PCB measures just under 100x100mm and so qualifies for several of the
 cheaper "prototype" fabrication services.
 
 Bill of materials for PCB:
- - Teensy 3.5 (do not substitute 3.6)
+ - Teensy 3.5 (do not substitute 3.6, I/O must be 5V tolerant)
  - 16 x 0.1uF MLCC capacitors
  - Z84C0020 (Z80 CPU, DIP, CMOS, do not attempt to use NMOS parts)
  - 2 x AS6C4008
