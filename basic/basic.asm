@@ -128,9 +128,8 @@ BN      .EQU    28H             ; BIN error
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; WRS - console i/o routines
-        .ORG    00000H          ; return to monitor
-        DI
-        HALT                    ; ... yeah
+        .ORG    00000H
+        JP COLD
         
         .ORG    00008H          ; output character in A
         JP OUTCHAR
