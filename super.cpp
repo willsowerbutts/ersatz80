@@ -181,9 +181,6 @@ bool execute_supervisor_command(char *cmd_buffer) // return false on exit/quit e
 
 void super_regs(int argc, char *argv[])
 {
-    if(not_in_supervised_mode())
-        return;
-
     // parsing isn't quite right
     // it'd be nice to be able to run: regs hl=1111 bc=2222 de=3333 af=0000 (etc)
     if(argc == 1 && !strcasecmp(argv[0], "show"))
@@ -535,9 +532,6 @@ void super_out(int argc, char *argv[])
 
 void super_run(int argc, char *argv[])
 {
-    if(not_in_supervised_mode())
-        return;
-
     if(argc != 1){
         report("error: syntax: run [address]\r\n");
     }else {
@@ -545,7 +539,9 @@ void super_run(int argc, char *argv[])
         if(!parse_int16(argv[0], &address, 16)){
             report("error: bad address\r\n");
         }else{
+            z80_mode_t prev_mode = z80_set_mode(Z80_SUPERVISED);
             z80_set_register(Z80_REG_PC, address);
+            z80_set_mode(prev_mode);
         }
     }
 }
