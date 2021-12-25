@@ -129,6 +129,7 @@ inline bool z80_iorq_asserted(void)            { return !*portInputRegister(Z80_
 inline bool z80_wait_asserted(void)            { return !*portInputRegister(Z80_WAIT);           }
 inline bool z80_m1_asserted(void)              { return !*portInputRegister(Z80_M1);             }
 inline bool z80_mreq_asserted(void)            { return !*portInputRegister(Z80_MREQ);           }
+inline bool z80_halt_asserted(void)            { return !*portInputRegister(Z80_HALT);           }
 inline void z80_set_busrq(bool request_dma)    { *portOutputRegister(Z80_BUSRQ)  = !request_dma; }
 inline void z80_set_release_wait(bool release) { *portOutputRegister(WAIT_RESET) = !release;     }
 inline void z80_set_mmu_ew(bool write)         { *portOutputRegister(MMU_EW)     = !write;       }
@@ -144,6 +145,7 @@ inline bool z80_iorq_asserted(void)            { return !digitalRead(Z80_IORQ); 
 inline bool z80_wait_asserted(void)            { return !digitalRead(Z80_WAIT);                  }
 inline bool z80_m1_asserted(void)              { return !digitalRead(Z80_M1);                    }
 inline bool z80_mreq_asserted(void)            { return !digitalRead(Z80_MREQ);                  }
+inline bool z80_halt_asserted(void)            { return !digitalRead(Z80_HALT);                  }
 inline void z80_set_busrq(bool request_dma)    { digitalWrite(Z80_BUSRQ,  !request_dma);         }
 inline void z80_set_release_wait(bool release) { digitalWrite(WAIT_RESET, !release);             }
 inline void z80_set_mmu_ew(bool write)         { digitalWrite(MMU_EW,     !write);               }

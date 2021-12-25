@@ -11,6 +11,7 @@
 #include "disasm.h"
 
 #undef MODE_SWITCH_DEBUGGING   // define to check switching between Z80 interface modes
+#define MODE_SWITCH_REPORT
 /*
  * === Z80 modes ===
  * +----------------- +-------------+---------+------+
@@ -124,7 +125,7 @@ bool z80_check_mode_correct(void)
     if(clk_sup && z80_reset && z80_ram_ce && z80_busrq && z80_busack && z80_addrbus && z80_databus)
         return true;
 
-    report("z80_check_mode_correct(z80_mode=%s, dma_mode=%s) FAILED:", z80_mode_name(z80_mode), dma_mode_name(dma_mode));
+    report("\r\nz80_check_mode_correct: z80_mode=%s, dma_mode=%s, FAILED:", z80_mode_name(z80_mode), dma_mode_name(dma_mode));
     if(!clk_sup)     report(" clk_sup");
     if(!z80_reset)   report(" z80_reset");
     if(!z80_ram_ce)  report(" z80_ram_ce");
@@ -424,7 +425,15 @@ z80_mode_t z80_set_mode(z80_mode_t new_mode)
     if(z80_mode == new_mode)
         return z80_mode;
 
+#ifdef MODE_SWITCH_REPORT
+    report("[->%s]", z80_mode_name(new_mode));
+#endif
+
     z80_mode_t prev_mode = z80_mode;
+
+    if(z80_halt_asserted()){
+        report("z80_set_mode() called while Z80 halted!\r\n");
+    }
 
     if(z80_mode == Z80_UNSUPERVISED){
         z80_bus_trace_t prev_trace = z80_bus_trace;
