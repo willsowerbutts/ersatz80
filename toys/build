@@ -1,0 +1,4 @@
+#!/bin/sh
+
+z80asm -o larson.bin larson.asm
+z80asm -o random.bin random.asm

@@ -16,8 +16,8 @@ again:  ld  a,d
         jr  nc,rand
         inc hl
 rand:   ex  de, hl
-		ld  c, 0x10
-		out (c), e
-		inc c
-		out (c), d
-		jr again
+        ld  c, 0x10
+        out (c), e
+        inc c
+        out (c), d
+        jr again
