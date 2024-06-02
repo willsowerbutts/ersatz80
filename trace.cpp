@@ -44,6 +44,7 @@ static void z80_instruction_ended(void)
         report("%-14s %2d  ", output, instruction_clock_cycles);
 
         addr = ~bus_trace[0].address;
+        cycle = NO_CYCLE;
         for(int i=0; i<bus_trace_count; i++){
             if(bus_trace[i].address != addr || cycle != bus_trace[i].cycle){
                 addr = bus_trace[i].address;

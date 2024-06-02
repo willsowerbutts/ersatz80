@@ -156,6 +156,8 @@ void z80_set_register(z80_register_t reg, uint16_t value)
             orig_pc = z80_enchanted_cpu_write(0xFD);     // ...
             z80_enchanted_cpu_write(0xE1);               // POP IY
             break;
+        default:
+            orig_pc = 0;
     }
 
     // where required, feed in the data value (and capture SP for POP instructions)

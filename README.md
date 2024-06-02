@@ -12,13 +12,24 @@ card.
 
 ## Brief instructions
 
-Assemble and populate the PCB. Program the Teensy with the firmware. Insert a 
-FAT formatted microSD card (optional). Connect the Teensy's USB port to a 
-computer and connect to the USB ACM serial device with your terminal 
-software. The serial input is normally sent to the Z80 UART device however 
-pressing the escape keycode (by default Ctrl+G) will wake up the supervisor 
-which will read and execute a command. The "help" command should give some 
-clues as to what commands are available.
+Assemble and populate the PCB.
+
+Program the Teensy with the firmware:
+ * You will need python3 and z80asm (both packaged in Debian)
+ * Install Arduino (I'm using version 2.3)
+ * Install arduino-cli (put the "arduino-cli" executable in your Arduino folder)
+ * Install Teensyduino (put the "teensy_loader_cli" executable in your Arduino folder)
+ * Run "make"
+
+Insert a FAT formatted microSD card (optional).
+
+Connect the Teensy's USB port to a computer and connect to the USB ACM serial
+device with your terminal software.
+
+Normally the USB ACM serial device is connected to the Z80 console (emulated
+"UART"), however the supervisor also shares the same device. Press the escape
+keycode (Ctrl+G by default) to wake up the supervisor. The "help" command will
+give some clues.
 
 ## PCB
 
